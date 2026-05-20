@@ -1,0 +1,10 @@
+/target
+Cargo.lock.bak
+*.swp
+.DS_Store
+data/
+.env
+
+# Internal tooling — not for public repo
+CLAUDE.md
+.claude/
