@@ -1,4 +1,5 @@
 use crate::error::ApiError;
+use crate::models::customer;
 use crate::state::AppState;
 use axum::{
     body::Body,
@@ -33,6 +34,41 @@ pub async fn require_bootstrap_key(
         }
         _ => Err(ApiError::Unauthorized),
     }
+}
+
+/// Middleware that requires `X-API-Key` to be the plaintext of an active
+/// customer key. The provided value is SHA-256 hashed and looked up against
+/// `customers.api_key_hash` (where `is_active = true`).
+///
+/// No dev-mode bypass: customer keys are DB-backed by design. In dev mode
+/// (`LOCPROOF_DEV=1`, no `LOCPROOF_API_KEY`), mint one via the unauthenticated
+/// `POST /admin/customers` and use the returned key on `/v1/*`.
+pub async fn require_customer_key(
+    State(state): State<AppState>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, ApiError> {
+    let provided = request
+        .headers()
+        .get("X-API-Key")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(ApiError::Unauthorized)?;
+
+    let hash = customer::hash_api_key(provided);
+
+    let found = sqlx::query_scalar!(
+        r#"SELECT id FROM customers WHERE api_key_hash = $1 AND is_active = true"#,
+        hash,
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| ApiError::Internal)?;
+
+    if found.is_none() {
+        return Err(ApiError::Unauthorized);
+    }
+
+    Ok(next.run(request).await)
 }
 
 /// Constant-time byte-slice comparison. Returns `false` on length mismatch

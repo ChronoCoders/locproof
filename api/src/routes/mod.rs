@@ -16,7 +16,7 @@ pub fn v1_router(state: AppState) -> Router<AppState> {
         .route("/v1/proofs/:proof_id", get(proofs::get_proof))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
-            auth::require_bootstrap_key,
+            auth::require_customer_key,
         ))
         .route_layer(middleware::from_fn_with_state(
             state,
