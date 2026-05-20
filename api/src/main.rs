@@ -4,6 +4,7 @@ mod auth;
 mod db;
 mod error;
 mod keystore;
+mod models;
 mod ratelimit;
 mod routes;
 mod state;
@@ -59,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/", get(root))
         .route("/health", get(health))
         .merge(routes::v1_router(state.clone()))
+        .merge(routes::admin_router(state.clone()))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
