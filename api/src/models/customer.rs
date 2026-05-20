@@ -7,7 +7,6 @@ use uuid::Uuid;
 pub struct Customer {
     pub id: Uuid,
     pub name: String,
-    pub api_key_hash: String,
     pub created_at: DateTime<Utc>,
     pub is_active: bool,
 }
@@ -38,7 +37,7 @@ pub async fn create(pool: &PgPool, name: &str) -> Result<(Customer, String), sql
         r#"
         INSERT INTO customers (name, api_key_hash)
         VALUES ($1, $2)
-        RETURNING id, name, api_key_hash, created_at, is_active
+        RETURNING id, name, created_at, is_active
         "#,
         name,
         hash,
@@ -52,7 +51,7 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Customer>, sqlx::Error> {
     sqlx::query_as!(
         Customer,
         r#"
-        SELECT id, name, api_key_hash, created_at, is_active
+        SELECT id, name, created_at, is_active
         FROM customers
         ORDER BY created_at DESC
         "#,
