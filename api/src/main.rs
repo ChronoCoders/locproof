@@ -27,6 +27,12 @@ async fn main() -> anyhow::Result<()> {
 
     let bootstrap_key = match std::env::var("LOCPROOF_API_KEY") {
         Ok(k) => {
+            if !is_well_formed_bootstrap_key(&k) {
+                eprintln!(
+                    "WARNING: LOCPROOF_API_KEY does not match the expected format \
+                     `lp_admin_<32 hex>`. The server will use it as-is."
+                );
+            }
             println!("Bootstrap admin key loaded");
             Some(k)
         }
@@ -71,6 +77,18 @@ async fn main() -> anyhow::Result<()> {
 
 async fn root() -> &'static str {
     "locproof-api"
+}
+
+/// Convention: bootstrap admin key is `lp_admin_` followed by 32 lowercase
+/// hex characters (16 bytes of randomness). Not enforced — operators may
+/// supply any value — but startup warns if the convention is violated so
+/// a misconfigured key (e.g. an `lp_live_…` customer key pasted in by
+/// mistake) is visible in the logs.
+fn is_well_formed_bootstrap_key(key: &str) -> bool {
+    let Some(rest) = key.strip_prefix("lp_admin_") else {
+        return false;
+    };
+    rest.len() == 32 && rest.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Liveness + readiness check. Pings the database; returns 503 if the pool
