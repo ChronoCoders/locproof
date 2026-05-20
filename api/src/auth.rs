@@ -7,17 +7,18 @@ use axum::{
     response::Response,
 };
 
-/// Middleware that requires `X-API-Key` to match the configured server key.
+/// Middleware that requires `X-API-Key` to match the bootstrap admin key
+/// (`LOCPROOF_API_KEY`).
 ///
-/// If `AppState::api_key` is `None` (no `LOCPROOF_API_KEY` env var at boot),
-/// the middleware allows every request through and the server runs in
-/// "dev mode" with no authentication.
-pub async fn require_api_key(
+/// If `AppState::bootstrap_key` is `None` (env var unset at boot), the
+/// middleware allows every request through and the server runs in dev mode
+/// with no admin authentication.
+pub async fn require_bootstrap_key(
     State(state): State<AppState>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let Some(expected) = state.api_key.as_ref() else {
+    let Some(expected) = state.bootstrap_key.as_ref() else {
         return Ok(next.run(request).await);
     };
 
