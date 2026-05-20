@@ -6,10 +6,11 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct AppState {
     pub server_keypair: Arc<SigningKey>,
-    /// Bootstrap admin key from `LOCPROOF_API_KEY`. Currently gates both
-    /// `/admin/*` and `/v1/*`; C3 will route `/v1/*` through per-customer
-    /// keys looked up via [`AppState::db`] and restrict the bootstrap key
-    /// to `/admin/*`. `None` disables auth (dev mode).
+    /// Bootstrap admin key from `LOCPROOF_API_KEY`. Gates `/admin/*` only.
+    /// `/v1/*` uses per-customer keys looked up via [`AppState::db`].
+    /// `None` disables admin auth (dev mode); customer auth on `/v1/*` is
+    /// always enforced, so dev users should mint a key via the (then
+    /// unauthenticated) `POST /admin/customers`.
     pub bootstrap_key: Option<Arc<String>>,
     pub rate_limiter: Arc<Limiter>,
     pub db: PgPool,
