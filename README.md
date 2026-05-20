@@ -21,16 +21,37 @@ Per-proof, Twilio-style. Volume discounts.
 
 ## Running Locally
 
-All `/v1/*` endpoints require an API key in the `X-API-Key` header. `/health`
-stays public. Generate a dev key and start the server:
+LocProof has two key types:
+
+- **Bootstrap admin key** (`lp_admin_<32 hex>`) — set via `LOCPROOF_API_KEY`.
+  Gates `/admin/*` only. Used to mint and manage customers.
+- **Customer keys** (`lp_live_<32 hex>`) — minted via `POST /admin/customers`,
+  stored as SHA-256 hashes. Gate `/v1/*`. The plaintext is returned exactly
+  once at creation.
+
+`/health` is public.
 
 ```bash
-export LOCPROOF_API_KEY="lp_live_$(openssl rand -hex 32)"
+# 1. Set the bootstrap admin key and start the server.
+export LOCPROOF_API_KEY="lp_admin_$(openssl rand -hex 16)"
 cargo run -p locproof-api
+
+# 2. Mint a customer key.
+curl -sX POST http://localhost:3000/admin/customers \
+  -H "X-API-Key: $LOCPROOF_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"acme"}'
+# → {"id":"…","name":"acme","api_key":"lp_live_…","created_at":"…"}
+
+# 3. Use the returned customer key on /v1/*.
+curl -X POST http://localhost:3000/v1/proofs \
+  -H "X-API-Key: lp_live_…" -d @proof.json
 ```
 
-If `LOCPROOF_API_KEY` is unset the server starts in dev mode (no auth) and
-prints a warning to stderr. Don't ship that.
+If `LOCPROOF_API_KEY` is unset, the server requires `LOCPROOF_DEV=1` and
+starts with `/admin/*` open (no admin auth). `/v1/*` always enforces a real
+customer key — mint one via the open `/admin/customers` in dev. Don't ship
+dev mode.
 
 The server signing keypair is persisted at `data/server.key` (mode `0600`,
 gitignored). Delete it and restart to rotate.
