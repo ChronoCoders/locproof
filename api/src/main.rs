@@ -24,9 +24,9 @@ async fn main() -> anyhow::Result<()> {
     let pubkey_b64 = STANDARD.encode(keypair.verifying_key().as_bytes());
     println!("Server public key: {pubkey_b64}");
 
-    let api_key = match std::env::var("LOCPROOF_API_KEY") {
+    let bootstrap_key = match std::env::var("LOCPROOF_API_KEY") {
         Ok(k) => {
-            println!("API key authentication enabled");
+            println!("Bootstrap admin key loaded");
             Some(k)
         }
         Err(_) => {
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
             eprintln!(
-                "WARNING: LOCPROOF_API_KEY not set — running in dev mode with no API auth"
+                "WARNING: LOCPROOF_API_KEY not set — running in dev mode with no admin auth"
             );
             None
         }
@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
     db::run_migrations(&pool).await?;
     println!("Database connected, migrations applied");
 
-    let state = AppState::new(keypair, api_key, rate_limiter, pool);
+    let state = AppState::new(keypair, bootstrap_key, rate_limiter, pool);
 
     let app = Router::new()
         .route("/", get(root))

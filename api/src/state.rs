@@ -6,10 +6,11 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct AppState {
     pub server_keypair: Arc<SigningKey>,
-    /// Expected `X-API-Key` value. `None` disables auth (dev mode).
-    /// Phase 2 will turn this into a bootstrap-only admin key alongside
-    /// per-customer keys looked up via [`AppState::db`].
-    pub api_key: Option<Arc<String>>,
+    /// Bootstrap admin key from `LOCPROOF_API_KEY`. Currently gates the
+    /// `/v1/*` router; C3 will move it to `/admin/*` only and route `/v1/*`
+    /// through per-customer keys looked up via [`AppState::db`].
+    /// `None` disables auth (dev mode).
+    pub bootstrap_key: Option<Arc<String>>,
     pub rate_limiter: Arc<Limiter>,
     pub db: PgPool,
 }
@@ -17,13 +18,13 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         server_keypair: SigningKey,
-        api_key: Option<String>,
+        bootstrap_key: Option<String>,
         rate_limiter: Arc<Limiter>,
         db: PgPool,
     ) -> Self {
         Self {
             server_keypair: Arc::new(server_keypair),
-            api_key: api_key.map(Arc::new),
+            bootstrap_key: bootstrap_key.map(Arc::new),
             rate_limiter,
             db,
         }
