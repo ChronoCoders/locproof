@@ -1,7 +1,8 @@
 # LocProof
 
-**Physical Proof of Proximity API.** Cryptographically prove two devices were within
-a bounded distance at a specific time.
+**Tamper-proof digital witness.** Cryptographic evidence that two parties were
+physically present at the same location. Court-admissible, blockchain-anchored,
+impossible to fake.
 
 ## Use Cases
 - **Logistics** — chain-of-custody handoffs between drivers, warehouses, recipients.
@@ -33,6 +34,35 @@ prints a warning to stderr. Don't ship that.
 
 The server signing keypair is persisted at `data/server.key` (mode `0600`,
 gitignored). Delete it and restart to rotate.
+
+## Roadmap
+
+### Phase 1 (Current) — API Foundation
+- Core proof types + scoring ✓
+- PostgreSQL storage ✓
+- API auth + rate limiting ✓
+- Customer management (in progress)
+
+### Phase 2 — Mobile SDKs
+- iOS SDK (Swift)
+- Android SDK (Kotlin)
+- Signal collection (BLE, GPS, Barometer)
+
+### Phase 3 — Blockchain Anchoring
+- Anchor proof hashes to Base L2
+- EIP-712 typed signatures
+- Batch anchoring with Merkle trees
+- On-chain verification contract
+
+### Phase 4 — Dashboard + Billing
+- Next.js customer dashboard
+- Stripe billing integration
+- Usage analytics
+
+### Phase 5 — Production Launch
+- Akamai/Vultr deployment
+- Monitoring + alerting
+- Documentation site
 
 ## Status
 Early development. Protocol spec in `docs/PROTOCOL.md`.
