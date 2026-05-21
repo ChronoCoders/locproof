@@ -4,6 +4,95 @@ All notable changes to LocProof are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] — 2026-05-20
+
+Phase 4a — Backend foundation for the dashboard and billing work.
+
+### Added
+
+- **`api_keys` table** (migration 002). One customer can now hold many
+  named keys (`lp_live_<32 hex>`), each with `last_used_at` and an
+  `is_active` flag. Existing single-key customers are backfilled
+  transparently — the old `customers.api_key_hash` column is dropped.
+- **`plan` and `stripe_customer_id` on `customers`** (migration 002).
+  `plan` defaults to `free`; `stripe_customer_id` is nullable. The
+  plan→quota table lives in `api/src/plan.rs` (`free=100`,
+  `starter=5000`, `growth=25000`, `enterprise=u32::MAX`); 4c will read
+  it for submit-time quota enforcement.
+- **`users` and `sessions` tables** (migration 003). Dashboard auth:
+  email + argon2id password hash, server-side session tokens, 30-day
+  sliding expiry capped at 90 days absolute.
+- **`POST /auth/register | /auth/login | /auth/logout`**. Register
+  creates the customer + user in a single transaction; if
+  `STRIPE_SECRET_KEY` is set, a Stripe customer is created beforehand
+  and persisted on `customers.stripe_customer_id`. Login returns the
+  same `Unauthorized` for unknown-email and bad-password to avoid user
+  enumeration. Email is lowercased + trimmed; passwords must be ≥ 12
+  chars. Cookie `lp_session` is `HttpOnly`, `SameSite=Strict`, `Secure`
+  in production, `Path=/`, `Max-Age=30 days`.
+- **`require_user_session` middleware**. Reads the cookie, slides the
+  expiry atomically (single `UPDATE ... FROM` JOIN against `users`),
+  injects `user_id` and `CustomerId(Uuid)` (newtype, distinct from the
+  bare `Uuid` injected by `require_customer_key`) into request
+  extensions.
+- **`GET /v1/proofs?cursor=&limit=`**. Cursor-paginated, newest first,
+  customer-scoped. Cursor is opaque `base64url(<unix_micros>:<uuid>)`;
+  malformed input returns 400 (no silent fall-through to page 1).
+  `limit` defaults to 50, clamped to `[1, 200]`. `next_cursor` is
+  `None` on the last page.
+- **`GET /v1/usage`**. `{ plan, current_month: {month, count, quota},
+  history: [{month, count}] }`. History is the prior 12 months oldest
+  first; current month is fetched separately so a zero-count month
+  still surfaces.
+- **`GET /dashboard/proofs | /dashboard/usage`**. Same DB helpers as
+  `/v1/*`, session-cookie auth instead of API key.
+- **`POST /dashboard/keys`, `GET /dashboard/keys`, `DELETE /dashboard/keys/:id`**.
+  Customer-scoped: the delete query filters on
+  `WHERE id = $1 AND customer_id = $2` so cross-tenant probing returns
+  404 indistinguishably from a non-existent id. List returns active and
+  inactive keys (audit view).
+- **`internal_err` helper everywhere DB / serde / crypto errors flow to
+  500** (already in place from 3.x; reaffirmed across the new modules).
+- **`api/tests/dashboard_e2e.rs`**. Full Postgres flow: register →
+  mint key → use key on `/v1/proofs` → revoke → expect 401 on reuse →
+  cross-tenant probe 404 → logout → stale cookie 401 → FK-safe
+  cleanup.
+
+### Changed
+
+- `customers.api_key_hash` column dropped; auth middleware now joins
+  `api_keys → customers` and requires both rows active.
+- `customer::create` is now transactional (customer + first key in one
+  tx). `customer::create_for_user` is the no-initial-key variant used
+  by `/auth/register`.
+- `routes/proofs.rs::list_impl` and `routes/usage.rs::get_usage_impl`
+  are the pure bodies — both the `/v1` and `/dashboard` wrappers call
+  into them, differing only in extractor.
+- `AppState::new` gains `stripe: Option<stripe::Client>` and
+  `cookie_secure: bool`. `cookie_secure = !dev_mode` in `main.rs`.
+  If `STRIPE_SECRET_KEY` is unset at boot, registration leaves
+  `stripe_customer_id` NULL and logs a warning.
+
+### Security notes
+
+- `/dashboard/*` has no rate limit in 4a. The existing limiter keys on
+  `X-API-Key` (or the literal `"dev"` when missing), so cookie traffic
+  would collapse into one bucket and block every dashboard user once
+  any one of them hit the threshold. Per-session or per-IP limiting
+  comes in a later phase.
+- Register creates the Stripe customer *before* the DB transaction; a
+  later DB failure orphans the Stripe customer. Acknowledged for now —
+  a reconciliation pass will land alongside webhook handling in 4c.
+- `list_keys` returns inactive keys so the dashboard can show a full
+  audit view. The frontend can filter by `is_active` if desired.
+
+### Not yet implemented
+
+- Next.js dashboard UI (Phase 4b, `v0.5.0`).
+- Stripe webhooks + plan upgrade/downgrade flow + submit-time quota
+  enforcement (Phase 4c, `v0.6.0`).
+- Per-session / per-IP rate limit.
+
 ## [v0.3.0] — 2026-05-20
 
 Phase 3 — Proof persistence, retrieval, and usage counting.
@@ -171,6 +260,7 @@ Phase 1 — API foundation and PostgreSQL storage.
 - Proof storage and `GET /v1/proofs/:id` retrieval (Phase 3).
 - Usage counting and monthly aggregation (Phase 3).
 
+[v0.4.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.1.0
