@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO proofs (\n            id, customer_id, device_a_pubkey, device_b_pubkey,\n            proximity_score, server_signature, proof_data\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bytea",
+        "Bytea",
+        "Float8",
+        "Bytea",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f1b890406205e802aece59daf208d82b3dadf378adecf35659df0ad703a96b84"
+}
