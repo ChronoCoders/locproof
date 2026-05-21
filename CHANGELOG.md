@@ -4,6 +4,53 @@ All notable changes to LocProof are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] — 2026-05-20
+
+Phase 3 — Proof persistence, retrieval, and usage counting.
+
+### Added
+
+- **`POST /v1/proofs` persists.** After signature verification and server
+  signing, the full `ProximityProof` is written to the `proofs` table —
+  hot columns (`id`, `customer_id`, `device_a_pubkey`, `device_b_pubkey`,
+  `proximity_score`, `server_signature`) populated for indexed lookups,
+  full proof stored as JSONB in `proof_data` for canonical client
+  retrieval.
+- **`GET /v1/proofs/:proof_id`** returns the stored `ProximityProof` as
+  JSON, or `404 {"error": "proof not found"}` if no row matches. Replaces
+  the Phase 1 placeholder that returned 501.
+- **Per-customer usage counting.** Every successful `POST /v1/proofs`
+  upserts the `usage` table for the current UTC month
+  (`ON CONFLICT (customer_id, month) DO UPDATE SET proof_count = proof_count + 1`).
+- **`customer_id` in request extensions.** `require_customer_key` now
+  inserts the matched `customers.id` into the request extensions; handlers
+  extract it via `Extension<Uuid>`.
+- **`ApiError::NotFound(&'static str)` → 404** with a human-readable
+  message.
+
+### Changed
+
+- Removed `ApiError::NotImplemented` — the only caller (the Phase 1 GET
+  placeholder) now returns real data or 404.
+- `sqlx` workspace dep now enables the `json` feature so JSONB columns
+  map to `serde_json::Value`.
+- Refreshed `.sqlx/` offline cache.
+
+### Security notes
+
+- The `POST` handler persists the proof and bumps usage as two separate
+  awaits, not a single transaction. A mid-sequence failure leaves the
+  proof stored but the usage count short by one. Acceptable at this
+  phase; revisit if usage becomes a billing input.
+- DB errors map to a generic 500 with no structured log. Add `tracing`
+  before production traffic so 500s aren't silent.
+
+### Not yet implemented
+
+- Listing/pagination of a customer's proofs.
+- Usage queries / monthly aggregation reporting (raw counts only).
+- Integration tests against a throwaway Postgres.
+
 ## [v0.2.0] — 2026-05-20
 
 Phase 2 — Auth refactor and customer management.
@@ -124,5 +171,6 @@ Phase 1 — API foundation and PostgreSQL storage.
 - Proof storage and `GET /v1/proofs/:id` retrieval (Phase 3).
 - Usage counting and monthly aggregation (Phase 3).
 
+[v0.3.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.1.0
