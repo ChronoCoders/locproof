@@ -4,6 +4,59 @@ All notable changes to LocProof are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] — 2026-05-20
+
+Phase 2 — Auth refactor and customer management.
+
+### Added
+
+- **Bootstrap admin key.** `LOCPROOF_API_KEY` is now the bootstrap admin key
+  (convention: `lp_admin_<32 hex>`) and gates `/admin/*` only. A startup
+  warning fires if the value doesn't match the conventional format; operators
+  may supply any string.
+- **Per-customer keys.** `/v1/*` now requires a customer key
+  (`lp_live_<32 hex>`) issued via `POST /admin/customers`. Plaintext is
+  returned exactly once at creation; only the SHA-256 hash is persisted.
+- **Customer model.** `api/src/models/customer.rs` with `generate_api_key`,
+  `hash_api_key`, and `create` / `list` / `deactivate` helpers using
+  compile-time-checked `sqlx::query!` macros.
+- **`/admin/customers` endpoints.**
+  - `POST /admin/customers` — create a customer; returns id, name, plaintext
+    `api_key`, and `created_at`.
+  - `GET /admin/customers` — list customers (no key/hash returned).
+  - `DELETE /admin/customers/:id` — soft delete (`is_active = false`).
+    Idempotent: 200 regardless of whether the row was already inactive or
+    didn't exist.
+- **`require_customer_key` middleware.** SHA-256 hashes the `X-API-Key`
+  header and looks it up against `customers.api_key_hash` with
+  `is_active = true`. No dev-mode bypass — in dev, mint a key via the
+  (then unauthenticated) `POST /admin/customers`.
+- **sqlx offline cache.** `.sqlx/` checked in so the workspace builds
+  without a live database (run `cargo sqlx prepare --workspace` after
+  adding queries).
+
+### Changed
+
+- `AppState::api_key` → `AppState::bootstrap_key`; `auth::require_api_key`
+  → `auth::require_bootstrap_key`.
+- `admin_router` is not rate-limited — admin operations are internal and
+  infrequent.
+- README quickstart rewritten to walk through bootstrap key → mint customer
+  → use customer key on `/v1/*`.
+
+### Security notes
+
+- Customer-key lookup is via SQL equality on the SHA-256 hash, not constant
+  time. The plaintext has 128 bits of entropy and the hash is indexed and not
+  secret; standard practice for hashed-key tables.
+- Bootstrap key format is conventional only — startup warns but does not
+  reject malformed values.
+
+### Not yet implemented
+
+- Proof storage and `GET /v1/proofs/:id` retrieval (Phase 3).
+- Usage counting and monthly aggregation (Phase 3).
+
 ## [v0.1.0] — 2026-05-20
 
 Phase 1 — API foundation and PostgreSQL storage.
@@ -71,4 +124,5 @@ Phase 1 — API foundation and PostgreSQL storage.
 - Proof storage and `GET /v1/proofs/:id` retrieval (Phase 3).
 - Usage counting and monthly aggregation (Phase 3).
 
+[v0.2.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/ChronoCoders/locproof/releases/tag/v0.1.0
