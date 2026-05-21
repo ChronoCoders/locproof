@@ -1,5 +1,5 @@
 use crate::db;
-use crate::error::ApiError;
+use crate::error::{internal_err, ApiError};
 use crate::state::AppState;
 use axum::{
     extract::{Path, State},
@@ -73,14 +73,16 @@ pub async fn submit(
         server_signature: Vec::new(),
     };
 
-    verify::sign_proof(&mut proof, &state.server_keypair).map_err(|_| ApiError::Internal)?;
+    verify::sign_proof(&mut proof, &state.server_keypair).map_err(internal_err)?;
 
-    db::store_proof(&state.db, customer_id, &proof)
+    let mut tx = state.db.begin().await.map_err(internal_err)?;
+    db::store_proof(&mut tx, customer_id, &proof)
         .await
-        .map_err(|_| ApiError::Internal)?;
-    db::increment_usage(&state.db, customer_id)
+        .map_err(internal_err)?;
+    db::increment_usage(&mut tx, customer_id)
         .await
-        .map_err(|_| ApiError::Internal)?;
+        .map_err(internal_err)?;
+    tx.commit().await.map_err(internal_err)?;
 
     Ok(Json(ProofResponse {
         proof_id: proof.id,
@@ -96,7 +98,7 @@ pub async fn get_proof(
 ) -> Result<Json<ProximityProof>, ApiError> {
     db::get_proof(&state.db, proof_id)
         .await
-        .map_err(|_| ApiError::Internal)?
+        .map_err(internal_err)?
         .map(Json)
         .ok_or(ApiError::NotFound("proof"))
 }

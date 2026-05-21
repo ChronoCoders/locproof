@@ -1,4 +1,4 @@
-use crate::error::ApiError;
+use crate::error::{internal_err, ApiError};
 use crate::models::customer;
 use crate::state::AppState;
 use axum::{
@@ -42,7 +42,7 @@ pub async fn create_customer(
     }
     let (row, api_key) = customer::create(&state.db, name)
         .await
-        .map_err(|_| ApiError::Internal)?;
+        .map_err(internal_err)?;
     Ok((
         StatusCode::CREATED,
         Json(CreateCustomerResponse {
@@ -59,7 +59,7 @@ pub async fn list_customers(
 ) -> Result<Json<Vec<CustomerSummary>>, ApiError> {
     let rows = customer::list(&state.db)
         .await
-        .map_err(|_| ApiError::Internal)?;
+        .map_err(internal_err)?;
     let out = rows
         .into_iter()
         .map(|c| CustomerSummary {
@@ -78,6 +78,6 @@ pub async fn delete_customer(
 ) -> Result<StatusCode, ApiError> {
     customer::deactivate(&state.db, id)
         .await
-        .map_err(|_| ApiError::Internal)?;
+        .map_err(internal_err)?;
     Ok(StatusCode::OK)
 }

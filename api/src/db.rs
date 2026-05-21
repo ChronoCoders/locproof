@@ -1,7 +1,7 @@
 use chrono::Datelike;
 use locproof_core::proof::ProximityProof;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 /// Connect to Postgres using `DATABASE_URL` and verify the connection.
@@ -21,11 +21,11 @@ pub async fn run_migrations(pool: &PgPool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Persist a verified, server-signed proof. The full `ProximityProof` is
-/// stored as JSONB in `proof_data` (canonical view for clients); the
-/// indexed columns mirror its hot fields for fast filtering.
+/// Persist a verified, server-signed proof. Takes `&mut PgConnection` so
+/// the caller controls the transaction (the `POST /v1/proofs` handler
+/// bundles this with `increment_usage` in a single tx).
 pub async fn store_proof(
-    pool: &PgPool,
+    conn: &mut PgConnection,
     customer_id: Uuid,
     proof: &ProximityProof,
 ) -> anyhow::Result<()> {
@@ -46,13 +46,14 @@ pub async fn store_proof(
         &proof.server_signature[..],
         proof_data,
     )
-    .execute(pool)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
 /// Fetch a stored proof by id. `Ok(None)` means the row was not found —
-/// callers translate that to a 404.
+/// callers translate that to a 404. Pool-bound (read-only, no transaction
+/// coordination needed).
 pub async fn get_proof(pool: &PgPool, proof_id: Uuid) -> anyhow::Result<Option<ProximityProof>> {
     let row = sqlx::query!(
         r#"SELECT proof_data FROM proofs WHERE id = $1"#,
@@ -67,11 +68,11 @@ pub async fn get_proof(pool: &PgPool, proof_id: Uuid) -> anyhow::Result<Option<P
     }
 }
 
-/// Bump the customer's current-month proof count. Uses an UPSERT keyed by
-/// `(customer_id, month)`. `month` is the first day of the current UTC
-/// month; `with_day(1)` is infallible for a valid `NaiveDate`, so the
-/// `unwrap_or(today)` is a no-panic guard, not a real fallback.
-pub async fn increment_usage(pool: &PgPool, customer_id: Uuid) -> anyhow::Result<()> {
+/// Bump the customer's current-month proof count. Takes `&mut PgConnection`
+/// for the same reason as `store_proof`. `with_day(1)` is infallible for a
+/// valid `NaiveDate`; `unwrap_or(today)` is a no-panic guard, not a real
+/// fallback.
+pub async fn increment_usage(conn: &mut PgConnection, customer_id: Uuid) -> anyhow::Result<()> {
     let today = chrono::Utc::now().date_naive();
     let month = today.with_day(1).unwrap_or(today);
     sqlx::query!(
@@ -84,7 +85,7 @@ pub async fn increment_usage(pool: &PgPool, customer_id: Uuid) -> anyhow::Result
         customer_id,
         month,
     )
-    .execute(pool)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }

@@ -26,3 +26,7 @@ sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio",
 dotenvy = "0.15"
 sha2 = "0.10"
 hex = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"
