@@ -1,57 +1,42 @@
 use chrono::{DateTime, Utc};
-use rand::RngCore;
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use super::api_key;
 
 pub struct Customer {
     pub id: Uuid,
     pub name: String,
     pub created_at: DateTime<Utc>,
     pub is_active: bool,
+    pub plan: String,
 }
 
-/// Generate a customer API key in the form `lp_live_<32 hex chars>` from
-/// 16 bytes of OS randomness.
-pub fn generate_api_key() -> String {
-    let mut bytes = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut bytes);
-    format!("lp_live_{}", hex::encode(bytes))
-}
-
-/// SHA-256 of an API key, hex-encoded. This is what we persist and what
-/// `require_customer_key` looks up against `customers.api_key_hash`.
-pub fn hash_api_key(key: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(key.as_bytes());
-    hex::encode(hasher.finalize())
-}
-
-/// Insert a new customer with a freshly generated key. Returns the persisted
-/// row and the plaintext key — the plaintext is only ever returned here.
+/// Create a new customer and mint its first API key in a single transaction.
+/// The plaintext key is returned exactly once, here.
 pub async fn create(pool: &PgPool, name: &str) -> Result<(Customer, String), sqlx::Error> {
-    let api_key = generate_api_key();
-    let hash = hash_api_key(&api_key);
-    let row = sqlx::query_as!(
+    let mut tx = pool.begin().await?;
+    let customer = sqlx::query_as!(
         Customer,
         r#"
-        INSERT INTO customers (name, api_key_hash)
-        VALUES ($1, $2)
-        RETURNING id, name, created_at, is_active
+        INSERT INTO customers (name)
+        VALUES ($1)
+        RETURNING id, name, created_at, is_active, plan
         "#,
         name,
-        hash,
     )
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
-    Ok((row, api_key))
+    let (_key, plaintext) = api_key::create(&mut tx, customer.id, "default").await?;
+    tx.commit().await?;
+    Ok((customer, plaintext))
 }
 
 pub async fn list(pool: &PgPool) -> Result<Vec<Customer>, sqlx::Error> {
     sqlx::query_as!(
         Customer,
         r#"
-        SELECT id, name, created_at, is_active
+        SELECT id, name, created_at, is_active, plan
         FROM customers
         ORDER BY created_at DESC
         "#,
@@ -60,8 +45,9 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Customer>, sqlx::Error> {
     .await
 }
 
-/// Soft-delete by flipping `is_active`. Idempotent: succeeds whether the id
-/// matches an active row, an already-inactive row, or nothing at all.
+/// Soft-delete the customer. Idempotent. Active API keys are left alone —
+/// `require_customer_key` joins on `customers.is_active` so they stop
+/// authenticating immediately anyway.
 pub async fn deactivate(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"UPDATE customers SET is_active = false WHERE id = $1"#,
@@ -70,35 +56,4 @@ pub async fn deactivate(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn generated_keys_have_expected_shape() {
-        let k = generate_api_key();
-        assert!(k.starts_with("lp_live_"));
-        assert_eq!(k.len(), "lp_live_".len() + 32);
-        assert!(k["lp_live_".len()..].chars().all(|c| c.is_ascii_hexdigit()));
-    }
-
-    #[test]
-    fn generated_keys_are_unique() {
-        assert_ne!(generate_api_key(), generate_api_key());
-    }
-
-    #[test]
-    fn hash_is_deterministic() {
-        let h1 = hash_api_key("lp_live_abc");
-        let h2 = hash_api_key("lp_live_abc");
-        assert_eq!(h1, h2);
-        assert_eq!(h1.len(), 64);
-    }
-
-    #[test]
-    fn different_keys_hash_differently() {
-        assert_ne!(hash_api_key("a"), hash_api_key("b"));
-    }
 }

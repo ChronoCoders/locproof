@@ -128,7 +128,7 @@ async fn submit_then_retrieve_records_usage() {
             .expect("fetch usage");
     assert_eq!(count, Some(1), "usage counter");
 
-    // Cleanup: proofs (FK to customer) → usage → customer.
+    // Cleanup: proofs / usage / api_keys all FK customer, drop them first.
     sqlx::query("DELETE FROM proofs WHERE customer_id = $1")
         .bind(cust.id)
         .execute(&pool)
@@ -139,6 +139,11 @@ async fn submit_then_retrieve_records_usage() {
         .execute(&pool)
         .await
         .expect("cleanup usage");
+    sqlx::query("DELETE FROM api_keys WHERE customer_id = $1")
+        .bind(cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup api_keys");
     sqlx::query("DELETE FROM customers WHERE id = $1")
         .bind(cust.id)
         .execute(&pool)
