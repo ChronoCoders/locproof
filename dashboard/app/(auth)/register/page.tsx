@@ -82,10 +82,13 @@ export default function RegisterPage() {
               autoComplete="email"
               autoFocus
               aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
               {...register("email")}
             />
             {errors.email ? (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+              <p id="email-error" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
             ) : null}
           </div>
           <div className="space-y-2">
@@ -95,10 +98,13 @@ export default function RegisterPage() {
               type="text"
               autoComplete="organization"
               aria-invalid={!!errors.customer_name}
+              aria-describedby={
+                errors.customer_name ? "customer_name-error" : undefined
+              }
               {...register("customer_name")}
             />
             {errors.customer_name ? (
-              <p className="text-xs text-destructive">
+              <p id="customer_name-error" className="text-xs text-destructive">
                 {errors.customer_name.message}
               </p>
             ) : null}
@@ -110,14 +116,17 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               aria-invalid={!!errors.password}
+              aria-describedby={
+                errors.password ? "password-error" : "password-hint"
+              }
               {...register("password")}
             />
             {errors.password ? (
-              <p className="text-xs text-destructive">
+              <p id="password-error" className="text-xs text-destructive">
                 {errors.password.message}
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p id="password-hint" className="text-xs text-muted-foreground">
                 Minimum 12 characters.
               </p>
             )}

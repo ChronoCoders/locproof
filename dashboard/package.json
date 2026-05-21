@@ -2,6 +2,7 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
+  "//": "zod is pinned to ^3 because @hookform/resolvers 5.x still expects the v3 ZodTypeDef shape (typeName field). Unpin once resolvers ships a v4-aware build.",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",

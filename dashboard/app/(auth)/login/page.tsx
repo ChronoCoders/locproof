@@ -78,10 +78,13 @@ export default function LoginPage() {
               autoComplete="email"
               autoFocus
               aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
               {...register("email")}
             />
             {errors.email ? (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+              <p id="email-error" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
             ) : null}
           </div>
           <div className="space-y-2">
@@ -91,10 +94,11 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? "password-error" : undefined}
               {...register("password")}
             />
             {errors.password ? (
-              <p className="text-xs text-destructive">
+              <p id="password-error" className="text-xs text-destructive">
                 {errors.password.message}
               </p>
             ) : null}
