@@ -23,6 +23,11 @@ export async function sessionCookieHeader(): Promise<string | null> {
 /// Probe the backend for a valid session by hitting a session-authed
 /// endpoint. Returns the usage payload on success (handy because the
 /// dashboard shell shows the plan), or null on 401.
+///
+/// Non-401 errors (backend 500, network, DB outage) are intentionally
+/// re-thrown so they surface in Next's error boundary. The alternative —
+/// falling through to /login — would mask a real outage as an auth
+/// failure and send users into a confusing redirect loop.
 export async function probeSession(): Promise<UsageResponse | null> {
   const cookie = await sessionCookieHeader();
   if (!cookie) return null;
