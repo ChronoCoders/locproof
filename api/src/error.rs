@@ -18,8 +18,8 @@ pub enum ApiError {
     TimestampSkew { delta_seconds: i64, max: i64 },
     #[error("rate limit exceeded; retry in {retry_after_secs}s")]
     RateLimited { retry_after_secs: u64 },
-    #[error("not implemented")]
-    NotImplemented,
+    #[error("{0} not found")]
+    NotFound(&'static str),
     #[error("internal server error")]
     Internal,
 }
@@ -35,7 +35,7 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(_) | ApiError::TimestampSkew { .. } => StatusCode::BAD_REQUEST,
             ApiError::InvalidSignature(_) | ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
             ApiError::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
-            ApiError::NotImplemented => StatusCode::NOT_IMPLEMENTED,
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let retry_after = match &self {

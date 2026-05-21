@@ -1,8 +1,9 @@
+use crate::db;
 use crate::error::ApiError;
 use crate::state::AppState;
 use axum::{
     extract::{Path, State},
-    Json,
+    Extension, Json,
 };
 use locproof_core::{
     proof::{DeviceAttestation, ProximityProof},
@@ -38,6 +39,7 @@ pub struct ProofResponse {
 
 pub async fn submit(
     State(state): State<AppState>,
+    Extension(customer_id): Extension<Uuid>,
     Json(req): Json<SubmitProofRequest>,
 ) -> Result<Json<ProofResponse>, ApiError> {
     let device_a = into_core_attestation(req.device_a, "a")?;
@@ -73,6 +75,13 @@ pub async fn submit(
 
     verify::sign_proof(&mut proof, &state.server_keypair).map_err(|_| ApiError::Internal)?;
 
+    db::store_proof(&state.db, customer_id, &proof)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    db::increment_usage(&state.db, customer_id)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+
     Ok(Json(ProofResponse {
         proof_id: proof.id,
         proximity_score: proof.proximity_score,
@@ -81,8 +90,15 @@ pub async fn submit(
     }))
 }
 
-pub async fn get_proof(Path(_proof_id): Path<Uuid>) -> Result<Json<ProofResponse>, ApiError> {
-    Err(ApiError::NotImplemented)
+pub async fn get_proof(
+    State(state): State<AppState>,
+    Path(proof_id): Path<Uuid>,
+) -> Result<Json<ProximityProof>, ApiError> {
+    db::get_proof(&state.db, proof_id)
+        .await
+        .map_err(|_| ApiError::Internal)?
+        .map(Json)
+        .ok_or(ApiError::NotFound("proof"))
 }
 
 fn into_core_attestation(
