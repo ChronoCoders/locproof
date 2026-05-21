@@ -67,7 +67,9 @@ async fn submit_then_retrieve_records_usage() {
     db::run_migrations(&pool).await.expect("migrate");
 
     let unique = format!("e2e-{}", Uuid::new_v4());
-    let (cust, api_key) = customer::create(&pool, &unique).await.expect("create customer");
+    let (cust, api_key) = customer::create(&pool, &unique)
+        .await
+        .expect("create customer");
 
     let server_key = SigningKey::generate(&mut OsRng);
     let limiter = ratelimit::create_limiter(1000).expect("limiter");
@@ -118,13 +120,12 @@ async fn submit_then_retrieve_records_usage() {
     let resp = app.clone().oneshot(missing).await.expect("oneshot 404");
     assert_eq!(resp.status(), StatusCode::NOT_FOUND, "missing proof status");
 
-    let count: Option<i32> = sqlx::query_scalar(
-        "SELECT proof_count FROM usage WHERE customer_id = $1",
-    )
-    .bind(cust.id)
-    .fetch_optional(&pool)
-    .await
-    .expect("fetch usage");
+    let count: Option<i32> =
+        sqlx::query_scalar("SELECT proof_count FROM usage WHERE customer_id = $1")
+            .bind(cust.id)
+            .fetch_optional(&pool)
+            .await
+            .expect("fetch usage");
     assert_eq!(count, Some(1), "usage counter");
 
     // Cleanup: proofs (FK to customer) → usage → customer.

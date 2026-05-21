@@ -6,8 +6,7 @@ use uuid::Uuid;
 
 /// Connect to Postgres using `DATABASE_URL` and verify the connection.
 pub async fn create_pool() -> anyhow::Result<PgPool> {
-    let url = std::env::var("DATABASE_URL")
-        .map_err(|_| anyhow::anyhow!("DATABASE_URL not set"))?;
+    let url = std::env::var("DATABASE_URL").map_err(|_| anyhow::anyhow!("DATABASE_URL not set"))?;
     let pool = PgPoolOptions::new()
         .max_connections(8)
         .connect(&url)
@@ -55,12 +54,9 @@ pub async fn store_proof(
 /// callers translate that to a 404. Pool-bound (read-only, no transaction
 /// coordination needed).
 pub async fn get_proof(pool: &PgPool, proof_id: Uuid) -> anyhow::Result<Option<ProximityProof>> {
-    let row = sqlx::query!(
-        r#"SELECT proof_data FROM proofs WHERE id = $1"#,
-        proof_id,
-    )
-    .fetch_optional(pool)
-    .await?;
+    let row = sqlx::query!(r#"SELECT proof_data FROM proofs WHERE id = $1"#, proof_id,)
+        .fetch_optional(pool)
+        .await?;
 
     match row {
         Some(r) => Ok(Some(serde_json::from_value(r.proof_data)?)),

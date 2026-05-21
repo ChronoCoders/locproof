@@ -110,8 +110,12 @@ fn calculate_gps_proximity(a: &Option<GpsSignal>, b: &Option<GpsSignal>) -> Opti
         _ => return None,
     };
 
-    let distance =
-        haversine_meters(gps_a.latitude, gps_a.longitude, gps_b.latitude, gps_b.longitude);
+    let distance = haversine_meters(
+        gps_a.latitude,
+        gps_a.longitude,
+        gps_b.latitude,
+        gps_b.longitude,
+    );
     let min_accuracy = gps_a.accuracy_meters.max(gps_b.accuracy_meters);
     let effective_distance = (distance - min_accuracy).max(0.0);
 
@@ -252,6 +256,9 @@ mod tests {
             timestamp: 0,
         });
         let s = calculate_proximity_score(&a, &b);
-        assert!(s > 0.9, "raw ~22m minus 30m accuracy → effective 0, got {s}");
+        assert!(
+            s > 0.9,
+            "raw ~22m minus 30m accuracy → effective 0, got {s}"
+        );
     }
 }

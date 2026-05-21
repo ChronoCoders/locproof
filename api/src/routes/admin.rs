@@ -57,9 +57,7 @@ pub async fn create_customer(
 pub async fn list_customers(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<CustomerSummary>>, ApiError> {
-    let rows = customer::list(&state.db)
-        .await
-        .map_err(internal_err)?;
+    let rows = customer::list(&state.db).await.map_err(internal_err)?;
     let out = rows
         .into_iter()
         .map(|c| CustomerSummary {
