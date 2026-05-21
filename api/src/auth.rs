@@ -45,7 +45,7 @@ pub async fn require_bootstrap_key(
 /// `POST /admin/customers` and use the returned key on `/v1/*`.
 pub async fn require_customer_key(
     State(state): State<AppState>,
-    request: Request<Body>,
+    mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
     let provided = request
@@ -56,18 +56,16 @@ pub async fn require_customer_key(
 
     let hash = customer::hash_api_key(provided);
 
-    let found = sqlx::query_scalar!(
+    let customer_id = sqlx::query_scalar!(
         r#"SELECT id FROM customers WHERE api_key_hash = $1 AND is_active = true"#,
         hash,
     )
     .fetch_optional(&state.db)
     .await
-    .map_err(|_| ApiError::Internal)?;
+    .map_err(|_| ApiError::Internal)?
+    .ok_or(ApiError::Unauthorized)?;
 
-    if found.is_none() {
-        return Err(ApiError::Unauthorized);
-    }
-
+    request.extensions_mut().insert(customer_id);
     Ok(next.run(request).await)
 }
 
