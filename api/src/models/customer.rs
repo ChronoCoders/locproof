@@ -45,6 +45,28 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Customer>, sqlx::Error> {
     .await
 }
 
+/// Create a customer for a dashboard user registration. No initial API
+/// key — the user mints one explicitly from `/dashboard/keys` later.
+/// `stripe_customer_id` is `None` if Stripe wasn't configured at boot.
+pub async fn create_for_user(
+    conn: &mut sqlx::PgConnection,
+    name: &str,
+    stripe_customer_id: Option<&str>,
+) -> Result<Customer, sqlx::Error> {
+    sqlx::query_as!(
+        Customer,
+        r#"
+        INSERT INTO customers (name, stripe_customer_id)
+        VALUES ($1, $2)
+        RETURNING id, name, created_at, is_active, plan
+        "#,
+        name,
+        stripe_customer_id,
+    )
+    .fetch_one(&mut *conn)
+    .await
+}
+
 /// Soft-delete the customer. Idempotent. Active API keys are left alone —
 /// `require_customer_key` joins on `customers.is_active` so they stop
 /// authenticating immediately anyway.

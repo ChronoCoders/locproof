@@ -22,6 +22,8 @@ async fn main() -> anyhow::Result<()> {
     let pubkey_b64 = STANDARD.encode(keypair.verifying_key().as_bytes());
     tracing::info!("Server public key: {pubkey_b64}");
 
+    let dev_mode = std::env::var("LOCPROOF_DEV").as_deref() == Ok("1");
+
     let bootstrap_key = match std::env::var("LOCPROOF_API_KEY") {
         Ok(k) => {
             if !is_well_formed_bootstrap_key(&k) {
@@ -34,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
             Some(k)
         }
         Err(_) => {
-            if std::env::var("LOCPROOF_DEV").as_deref() != Ok("1") {
+            if !dev_mode {
                 anyhow::bail!(
                     "LOCPROOF_API_KEY not set. Set it for production, or set LOCPROOF_DEV=1 to run without auth."
                 );
@@ -43,6 +45,21 @@ async fn main() -> anyhow::Result<()> {
             None
         }
     };
+
+    let stripe = match std::env::var("STRIPE_SECRET_KEY") {
+        Ok(secret) => {
+            tracing::info!("Stripe client initialised");
+            Some(stripe::Client::new(secret))
+        }
+        Err(_) => {
+            tracing::warn!(
+                "STRIPE_SECRET_KEY not set — /auth/register will leave stripe_customer_id NULL"
+            );
+            None
+        }
+    };
+
+    let cookie_secure = !dev_mode;
 
     let rate_per_min: u32 = std::env::var("LOCPROOF_RATE_LIMIT")
         .ok()
@@ -55,7 +72,14 @@ async fn main() -> anyhow::Result<()> {
     db::run_migrations(&pool).await?;
     tracing::info!("Database connected, migrations applied");
 
-    let state = AppState::new(keypair, bootstrap_key, rate_limiter, pool);
+    let state = AppState::new(
+        keypair,
+        bootstrap_key,
+        rate_limiter,
+        pool,
+        stripe,
+        cookie_secure,
+    );
     let app = build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
