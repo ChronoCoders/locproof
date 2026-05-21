@@ -7,4 +7,5 @@ data/
 
 # Internal tooling — not for public repo
 CLAUDE.md
+AGENTS.md
 .claude/
