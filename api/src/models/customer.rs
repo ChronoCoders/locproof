@@ -67,6 +67,13 @@ pub async fn create_for_user(
     .await
 }
 
+/// Fetch the plan string for a single customer. `None` if no such id.
+pub async fn get_plan(pool: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(r#"SELECT plan FROM customers WHERE id = $1"#, id)
+        .fetch_optional(pool)
+        .await
+}
+
 /// Soft-delete the customer. Idempotent. Active API keys are left alone —
 /// `require_customer_key` joins on `customers.is_active` so they stop
 /// authenticating immediately anyway.

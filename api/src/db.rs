@@ -50,6 +50,97 @@ pub async fn store_proof(
     Ok(())
 }
 
+/// One row of `GET /v1/proofs` — summary fields only. The full signed
+/// proof is in `proof_data` JSONB; callers who want it call `get_proof`.
+pub struct ProofSummaryRow {
+    pub id: Uuid,
+    pub proximity_score: f64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Cursor-paginated list of a customer's proofs, newest first. Order is
+/// `(created_at DESC, id DESC)`; the cursor is the last row's
+/// `(created_at, id)` tuple. `None` cursor returns the first page.
+pub async fn list_proofs(
+    pool: &PgPool,
+    customer_id: Uuid,
+    cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
+    limit: i64,
+) -> anyhow::Result<Vec<ProofSummaryRow>> {
+    let (cursor_ts, cursor_id) = match cursor {
+        Some((ts, id)) => (Some(ts), Some(id)),
+        None => (None, None),
+    };
+    let rows = sqlx::query_as!(
+        ProofSummaryRow,
+        r#"
+        SELECT id, proximity_score, created_at
+        FROM proofs
+        WHERE customer_id = $1
+          AND (
+            $2::TIMESTAMPTZ IS NULL
+            OR (created_at, id) < ($2::TIMESTAMPTZ, $3::UUID)
+          )
+        ORDER BY created_at DESC, id DESC
+        LIMIT $4
+        "#,
+        customer_id,
+        cursor_ts,
+        cursor_id,
+        limit,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Current-month proof count for a customer. Returns 0 if no row exists
+/// (the customer hasn't submitted anything this month yet).
+pub async fn current_month_count(pool: &PgPool, customer_id: Uuid) -> anyhow::Result<i32> {
+    let today = chrono::Utc::now().date_naive();
+    let month = today.with_day(1).unwrap_or(today);
+    let row = sqlx::query_scalar!(
+        r#"SELECT proof_count FROM usage WHERE customer_id = $1 AND month = $2"#,
+        customer_id,
+        month,
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.unwrap_or(0))
+}
+
+/// One row of `GET /v1/usage` history.
+pub struct UsageHistoryRow {
+    pub month: chrono::NaiveDate,
+    pub proof_count: i32,
+}
+
+/// Last 12 months of usage for a customer, oldest first, excluding the
+/// current month (the caller pairs this with `current_month_count`).
+pub async fn usage_history(
+    pool: &PgPool,
+    customer_id: Uuid,
+) -> anyhow::Result<Vec<UsageHistoryRow>> {
+    let today = chrono::Utc::now().date_naive();
+    let current_month = today.with_day(1).unwrap_or(today);
+    let rows = sqlx::query_as!(
+        UsageHistoryRow,
+        r#"
+        SELECT month, proof_count
+        FROM usage
+        WHERE customer_id = $1
+          AND month < $2
+          AND month >= $2 - INTERVAL '12 months'
+        ORDER BY month ASC
+        "#,
+        customer_id,
+        current_month,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Fetch a stored proof by id. `Ok(None)` means the row was not found —
 /// callers translate that to a 404. Pool-bound (read-only, no transaction
 /// coordination needed).

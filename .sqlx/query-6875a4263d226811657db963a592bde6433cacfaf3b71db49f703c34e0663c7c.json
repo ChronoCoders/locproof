@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, proximity_score, created_at\n        FROM proofs\n        WHERE customer_id = $1\n          AND (\n            $2::TIMESTAMPTZ IS NULL\n            OR (created_at, id) < ($2::TIMESTAMPTZ, $3::UUID)\n          )\n        ORDER BY created_at DESC, id DESC\n        LIMIT $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "proximity_score",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6875a4263d226811657db963a592bde6433cacfaf3b71db49f703c34e0663c7c"
+}
