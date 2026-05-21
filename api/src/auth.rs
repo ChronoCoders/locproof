@@ -1,5 +1,5 @@
 use crate::error::{internal_err, ApiError};
-use crate::models::customer;
+use crate::models::api_key;
 use crate::state::AppState;
 use axum::{
     body::Body,
@@ -37,8 +37,8 @@ pub async fn require_bootstrap_key(
 }
 
 /// Middleware that requires `X-API-Key` to be the plaintext of an active
-/// customer key. The provided value is SHA-256 hashed and looked up against
-/// `customers.api_key_hash` (where `is_active = true`).
+/// customer key. The provided value is SHA-256 hashed and joined against
+/// `api_keys` → `customers`, requiring both rows to be active.
 ///
 /// No dev-mode bypass: customer keys are DB-backed by design. In dev mode
 /// (`LOCPROOF_DEV=1`, no `LOCPROOF_API_KEY`), mint one via the unauthenticated
@@ -54,10 +54,15 @@ pub async fn require_customer_key(
         .and_then(|v| v.to_str().ok())
         .ok_or(ApiError::Unauthorized)?;
 
-    let hash = customer::hash_api_key(provided);
+    let hash = api_key::hash_api_key(provided);
 
     let customer_id = sqlx::query_scalar!(
-        r#"SELECT id FROM customers WHERE api_key_hash = $1 AND is_active = true"#,
+        r#"
+        SELECT c.id
+        FROM api_keys k
+        JOIN customers c ON c.id = k.customer_id
+        WHERE k.key_hash = $1 AND k.is_active = true AND c.is_active = true
+        "#,
         hash,
     )
     .fetch_optional(&state.db)

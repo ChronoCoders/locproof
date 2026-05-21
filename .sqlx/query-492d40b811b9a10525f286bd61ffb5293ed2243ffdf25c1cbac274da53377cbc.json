@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, name, created_at, is_active\n        FROM customers\n        ORDER BY created_at DESC\n        ",
+  "query": "\n        INSERT INTO customers (name)\n        VALUES ($1)\n        RETURNING id, name, created_at, is_active, plan\n        ",
   "describe": {
     "columns": [
       {
@@ -22,17 +22,25 @@
         "ordinal": 3,
         "name": "is_active",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "plan",
+        "type_info": "Text"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
       false
     ]
   },
-  "hash": "1d5562d9e0d701e15038c4103313264947b5ae40212c899946bd87659efea4ca"
+  "hash": "492d40b811b9a10525f286bd61ffb5293ed2243ffdf25c1cbac274da53377cbc"
 }
