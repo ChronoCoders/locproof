@@ -122,6 +122,17 @@ pub async fn list(
     Extension(customer_id): Extension<Uuid>,
     Query(q): Query<ListQuery>,
 ) -> Result<Json<ListProofsResponse>, ApiError> {
+    list_impl(&state, customer_id, q).await
+}
+
+/// Pure body of `GET /v1/proofs` and `GET /dashboard/proofs`. Takes the
+/// customer id directly so it can be reused regardless of how the caller
+/// was authenticated (API key on `/v1/*` vs session cookie on `/dashboard/*`).
+pub async fn list_impl(
+    state: &AppState,
+    customer_id: Uuid,
+    q: ListQuery,
+) -> Result<Json<ListProofsResponse>, ApiError> {
     let limit = q
         .limit
         .unwrap_or(DEFAULT_PAGE_LIMIT)
