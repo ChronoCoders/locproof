@@ -39,9 +39,7 @@ async fn main() -> anyhow::Result<()> {
                     "LOCPROOF_API_KEY not set. Set it for production, or set LOCPROOF_DEV=1 to run without auth."
                 );
             }
-            tracing::warn!(
-                "LOCPROOF_API_KEY not set — running in dev mode with no admin auth"
-            );
+            tracing::warn!("LOCPROOF_API_KEY not set — running in dev mode with no admin auth");
             None
         }
     };

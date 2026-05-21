@@ -107,11 +107,10 @@ fn into_core_attestation(
     wire: WireDeviceAttestation,
     label: &'static str,
 ) -> Result<DeviceAttestation, ApiError> {
-    let device_id: [u8; 32] = wire
-        .device_id
-        .as_slice()
-        .try_into()
-        .map_err(|_| ApiError::BadRequest(format!("device {label}: device_id must be 32 bytes")))?;
+    let device_id: [u8; 32] =
+        wire.device_id.as_slice().try_into().map_err(|_| {
+            ApiError::BadRequest(format!("device {label}: device_id must be 32 bytes"))
+        })?;
     Ok(DeviceAttestation {
         device_id,
         signals: wire.signals,

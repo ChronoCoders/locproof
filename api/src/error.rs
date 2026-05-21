@@ -61,10 +61,9 @@ impl IntoResponse for ApiError {
             response
                 .headers_mut()
                 .insert("X-RateLimit-Reset", HeaderValue::from(secs));
-            response.headers_mut().insert(
-                "X-RateLimit-Remaining",
-                HeaderValue::from_static("0"),
-            );
+            response
+                .headers_mut()
+                .insert("X-RateLimit-Remaining", HeaderValue::from_static("0"));
         }
         response
     }
