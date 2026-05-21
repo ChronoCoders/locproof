@@ -1,4 +1,4 @@
-use crate::auth;
+use crate::auth as middleware_auth;
 use crate::ratelimit;
 use crate::state::AppState;
 use axum::{
@@ -8,7 +8,22 @@ use axum::{
 };
 
 pub mod admin;
+pub mod auth;
 pub mod proofs;
+
+/// Auth endpoints (`/auth/*`). Public — no middleware. Register/login
+/// issue session cookies; logout deletes them. Rate-limited to deter
+/// credential stuffing.
+pub fn auth_router(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/auth/register", post(auth::register))
+        .route("/auth/login", post(auth::login))
+        .route("/auth/logout", post(auth::logout))
+        .route_layer(middleware::from_fn_with_state(
+            state,
+            ratelimit::rate_limit_middleware,
+        ))
+}
 
 pub fn v1_router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -16,7 +31,7 @@ pub fn v1_router(state: AppState) -> Router<AppState> {
         .route("/v1/proofs/:proof_id", get(proofs::get_proof))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
-            auth::require_customer_key,
+            middleware_auth::require_customer_key,
         ))
         .route_layer(middleware::from_fn_with_state(
             state,
@@ -35,6 +50,6 @@ pub fn admin_router(state: AppState) -> Router<AppState> {
         .route("/admin/customers/:id", delete(admin::delete_customer))
         .route_layer(middleware::from_fn_with_state(
             state,
-            auth::require_bootstrap_key,
+            middleware_auth::require_bootstrap_key,
         ))
 }

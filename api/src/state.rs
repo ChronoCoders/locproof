@@ -14,6 +14,14 @@ pub struct AppState {
     pub bootstrap_key: Option<Arc<String>>,
     pub rate_limiter: Arc<Limiter>,
     pub db: PgPool,
+    /// `None` if `STRIPE_SECRET_KEY` was unset at boot; `/auth/register`
+    /// then skips the Stripe customer create and leaves
+    /// `customers.stripe_customer_id` NULL.
+    pub stripe: Option<Arc<stripe::Client>>,
+    /// Whether to set the `Secure` attribute on session cookies. True in
+    /// production (HTTPS), false in `LOCPROOF_DEV=1` so localhost http
+    /// requests still receive the cookie.
+    pub cookie_secure: bool,
 }
 
 impl AppState {
@@ -22,12 +30,16 @@ impl AppState {
         bootstrap_key: Option<String>,
         rate_limiter: Arc<Limiter>,
         db: PgPool,
+        stripe: Option<stripe::Client>,
+        cookie_secure: bool,
     ) -> Self {
         Self {
             server_keypair: Arc::new(server_keypair),
             bootstrap_key: bootstrap_key.map(Arc::new),
             rate_limiter,
             db,
+            stripe: stripe.map(Arc::new),
+            cookie_secure,
         }
     }
 }

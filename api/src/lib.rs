@@ -20,6 +20,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/health", get(health))
         .merge(routes::v1_router(state.clone()))
         .merge(routes::admin_router(state.clone()))
+        .merge(routes::auth_router(state.clone()))
         .with_state(state)
 }
 

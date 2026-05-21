@@ -73,7 +73,7 @@ async fn submit_then_retrieve_records_usage() {
 
     let server_key = SigningKey::generate(&mut OsRng);
     let limiter = ratelimit::create_limiter(1000).expect("limiter");
-    let state = AppState::new(server_key, None, limiter, pool.clone());
+    let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
     let app = build_app(state);
 
     let key_a = SigningKey::generate(&mut OsRng);
