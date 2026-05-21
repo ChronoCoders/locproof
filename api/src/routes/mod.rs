@@ -9,8 +9,30 @@ use axum::{
 
 pub mod admin;
 pub mod auth;
+pub mod dashboard;
 pub mod proofs;
 pub mod usage;
+
+/// Dashboard endpoints (`/dashboard/*`). Session-cookie auth via
+/// `require_user_session`. No rate limit: the current limiter keys on the
+/// `X-API-Key` header (or the literal "dev" if missing), so cookie-authed
+/// traffic would all collapse into the same bucket and block every
+/// dashboard user once any one of them hit the threshold. Per-session or
+/// per-IP limiting can come back in a later phase.
+pub fn dashboard_router(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/dashboard/proofs", get(dashboard::list_proofs))
+        .route("/dashboard/usage", get(dashboard::get_usage))
+        .route(
+            "/dashboard/keys",
+            post(dashboard::create_key).get(dashboard::list_keys),
+        )
+        .route("/dashboard/keys/:id", delete(dashboard::delete_key))
+        .route_layer(middleware::from_fn_with_state(
+            state,
+            middleware_auth::require_user_session,
+        ))
+}
 
 /// Auth endpoints (`/auth/*`). Public — no middleware. Register/login
 /// issue session cookies; logout deletes them. Rate-limited to deter

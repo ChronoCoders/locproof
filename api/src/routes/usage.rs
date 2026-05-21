@@ -32,6 +32,15 @@ pub async fn get_usage(
     State(state): State<AppState>,
     Extension(customer_id): Extension<Uuid>,
 ) -> Result<Json<UsageResponse>, ApiError> {
+    get_usage_impl(&state, customer_id).await
+}
+
+/// Pure body of `GET /v1/usage` and `GET /dashboard/usage`. Customer id
+/// passed directly so either auth path can call it.
+pub async fn get_usage_impl(
+    state: &AppState,
+    customer_id: Uuid,
+) -> Result<Json<UsageResponse>, ApiError> {
     let plan_str = customer::get_plan(&state.db, customer_id)
         .await
         .map_err(internal_err)?

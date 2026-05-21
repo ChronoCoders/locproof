@@ -82,6 +82,25 @@ pub async fn deactivate(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+/// Soft-delete a key, scoped to a customer. Returns `true` iff a row
+/// matched (key exists AND belongs to `customer_id`). The dashboard handler
+/// maps `false` to 404 so cross-tenant probing returns the same response
+/// as a non-existent id.
+pub async fn deactivate_for_customer(
+    pool: &PgPool,
+    id: Uuid,
+    customer_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"UPDATE api_keys SET is_active = false WHERE id = $1 AND customer_id = $2"#,
+        id,
+        customer_id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
