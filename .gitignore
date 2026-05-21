@@ -6,3 +6,4 @@ data/
 .env
 
 # Internal tooling — not for public repo
+AGENTS.md
