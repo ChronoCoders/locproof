@@ -16,21 +16,21 @@ async fn main() -> anyhow::Result<()> {
 
     let (keypair, origin) = keystore::load_or_generate_keypair()?;
     match origin {
-        keystore::KeyOrigin::Loaded => println!("Loaded existing server keypair"),
-        keystore::KeyOrigin::Generated => println!("Generated new server keypair"),
+        keystore::KeyOrigin::Loaded => tracing::info!("Loaded existing server keypair"),
+        keystore::KeyOrigin::Generated => tracing::info!("Generated new server keypair"),
     }
     let pubkey_b64 = STANDARD.encode(keypair.verifying_key().as_bytes());
-    println!("Server public key: {pubkey_b64}");
+    tracing::info!("Server public key: {pubkey_b64}");
 
     let bootstrap_key = match std::env::var("LOCPROOF_API_KEY") {
         Ok(k) => {
             if !is_well_formed_bootstrap_key(&k) {
-                eprintln!(
-                    "WARNING: LOCPROOF_API_KEY does not match the expected format \
+                tracing::warn!(
+                    "LOCPROOF_API_KEY does not match the expected format \
                      `lp_admin_<32 hex>`. The server will use it as-is."
                 );
             }
-            println!("Bootstrap admin key loaded");
+            tracing::info!("Bootstrap admin key loaded");
             Some(k)
         }
         Err(_) => {
@@ -39,8 +39,8 @@ async fn main() -> anyhow::Result<()> {
                     "LOCPROOF_API_KEY not set. Set it for production, or set LOCPROOF_DEV=1 to run without auth."
                 );
             }
-            eprintln!(
-                "WARNING: LOCPROOF_API_KEY not set — running in dev mode with no admin auth"
+            tracing::warn!(
+                "LOCPROOF_API_KEY not set — running in dev mode with no admin auth"
             );
             None
         }
@@ -51,17 +51,17 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|s| s.parse().ok())
         .unwrap_or(100);
     let rate_limiter = ratelimit::create_limiter(rate_per_min)?;
-    println!("Rate limit: {rate_per_min} req/min per API key");
+    tracing::info!("Rate limit: {rate_per_min} req/min per API key");
 
     let pool = db::create_pool().await?;
     db::run_migrations(&pool).await?;
-    println!("Database connected, migrations applied");
+    tracing::info!("Database connected, migrations applied");
 
     let state = AppState::new(keypair, bootstrap_key, rate_limiter, pool);
     let app = build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    println!("locproof-api listening on {}", listener.local_addr()?);
+    tracing::info!("locproof-api listening on {}", listener.local_addr()?);
     axum::serve(listener, app).await?;
     Ok(())
 }
