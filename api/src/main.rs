@@ -1,21 +1,18 @@
 #![deny(warnings)]
 
-mod auth;
-mod db;
-mod error;
-mod keystore;
-mod models;
-mod ratelimit;
-mod routes;
-mod state;
-
-use axum::{extract::State, http::StatusCode, routing::get, Router};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use state::AppState;
+use locproof_api::{build_app, db, keystore, ratelimit, state::AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let _ = dotenvy::dotenv();
+
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let (keypair, origin) = keystore::load_or_generate_keypair()?;
     match origin {
@@ -61,22 +58,12 @@ async fn main() -> anyhow::Result<()> {
     println!("Database connected, migrations applied");
 
     let state = AppState::new(keypair, bootstrap_key, rate_limiter, pool);
-
-    let app = Router::new()
-        .route("/", get(root))
-        .route("/health", get(health))
-        .merge(routes::v1_router(state.clone()))
-        .merge(routes::admin_router(state.clone()))
-        .with_state(state);
+    let app = build_app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     println!("locproof-api listening on {}", listener.local_addr()?);
     axum::serve(listener, app).await?;
     Ok(())
-}
-
-async fn root() -> &'static str {
-    "locproof-api"
 }
 
 /// Convention: bootstrap admin key is `lp_admin_` followed by 32 lowercase
@@ -89,14 +76,4 @@ fn is_well_formed_bootstrap_key(key: &str) -> bool {
         return false;
     };
     rest.len() == 32 && rest.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-/// Liveness + readiness check. Pings the database; returns 503 if the pool
-/// can't satisfy a trivial query.
-async fn health(State(state): State<AppState>) -> Result<&'static str, StatusCode> {
-    sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.db)
-        .await
-        .map(|_| "ok")
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)
 }

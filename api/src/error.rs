@@ -6,6 +6,14 @@ use axum::{
 use serde::Serialize;
 use thiserror::Error;
 
+/// Map any error into `ApiError::Internal`, logging the underlying cause
+/// first. Use at every `.map_err(...)` that collapses to a 500 — DB,
+/// crypto, serde — so 500s aren't silent.
+pub fn internal_err<E: std::fmt::Debug>(e: E) -> ApiError {
+    tracing::error!("internal error: {e:?}");
+    ApiError::Internal
+}
+
 #[derive(Debug, Error)]
 pub enum ApiError {
     #[error("invalid request: {0}")]

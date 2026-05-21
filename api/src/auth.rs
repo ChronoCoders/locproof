@@ -1,4 +1,4 @@
-use crate::error::ApiError;
+use crate::error::{internal_err, ApiError};
 use crate::models::customer;
 use crate::state::AppState;
 use axum::{
@@ -62,7 +62,7 @@ pub async fn require_customer_key(
     )
     .fetch_optional(&state.db)
     .await
-    .map_err(|_| ApiError::Internal)?
+    .map_err(internal_err)?
     .ok_or(ApiError::Unauthorized)?;
 
     request.extensions_mut().insert(customer_id);
