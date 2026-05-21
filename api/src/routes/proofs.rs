@@ -2,9 +2,11 @@ use crate::db;
 use crate::error::{internal_err, ApiError};
 use crate::state::AppState;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Extension, Json,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use chrono::{DateTime, Utc};
 use locproof_core::{
     proof::{DeviceAttestation, ProximityProof},
     scoring::calculate_proximity_score,
@@ -13,6 +15,9 @@ use locproof_core::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+const DEFAULT_PAGE_LIMIT: i64 = 50;
+const MAX_PAGE_LIMIT: i64 = 200;
 
 #[derive(Deserialize)]
 pub struct SubmitProofRequest {
@@ -90,6 +95,80 @@ pub async fn submit(
         verified: true,
         timestamp: proof.timestamp,
     }))
+}
+
+#[derive(Deserialize)]
+pub struct ListQuery {
+    pub cursor: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct ProofSummary {
+    pub proof_id: Uuid,
+    pub proximity_score: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize)]
+pub struct ListProofsResponse {
+    pub proofs: Vec<ProofSummary>,
+    /// `None` if this is the last page.
+    pub next_cursor: Option<String>,
+}
+
+pub async fn list(
+    State(state): State<AppState>,
+    Extension(customer_id): Extension<Uuid>,
+    Query(q): Query<ListQuery>,
+) -> Result<Json<ListProofsResponse>, ApiError> {
+    let limit = q
+        .limit
+        .unwrap_or(DEFAULT_PAGE_LIMIT)
+        .clamp(1, MAX_PAGE_LIMIT);
+    let cursor = q.cursor.as_deref().map(decode_cursor).transpose()?;
+
+    let rows = db::list_proofs(&state.db, customer_id, cursor, limit)
+        .await
+        .map_err(internal_err)?;
+
+    let next_cursor = rows.last().and_then(|r| {
+        if rows.len() as i64 == limit {
+            Some(encode_cursor(r.created_at, r.id))
+        } else {
+            None
+        }
+    });
+
+    Ok(Json(ListProofsResponse {
+        proofs: rows
+            .into_iter()
+            .map(|r| ProofSummary {
+                proof_id: r.id,
+                proximity_score: r.proximity_score,
+                created_at: r.created_at,
+            })
+            .collect(),
+        next_cursor,
+    }))
+}
+
+/// Cursor encoding: `base64url(<unix_micros>:<uuid>)`. Opaque to clients;
+/// they only round-trip the string from `next_cursor` back into the next
+/// request's `?cursor=`.
+fn encode_cursor(ts: DateTime<Utc>, id: Uuid) -> String {
+    URL_SAFE_NO_PAD.encode(format!("{}:{}", ts.timestamp_micros(), id))
+}
+
+fn decode_cursor(s: &str) -> Result<(DateTime<Utc>, Uuid), ApiError> {
+    let bad = || ApiError::BadRequest("invalid cursor".into());
+    let bytes = URL_SAFE_NO_PAD.decode(s).map_err(|_| bad())?;
+    let decoded = std::str::from_utf8(&bytes).map_err(|_| bad())?;
+    let (ts_str, id_str) = decoded.split_once(':').ok_or_else(bad)?;
+    let micros: i64 = ts_str.parse().map_err(|_| bad())?;
+    let ts = DateTime::<Utc>::from_timestamp_micros(micros).ok_or_else(bad)?;
+    let id: Uuid = id_str.parse().map_err(|_| bad())?;
+    Ok((ts, id))
 }
 
 pub async fn get_proof(

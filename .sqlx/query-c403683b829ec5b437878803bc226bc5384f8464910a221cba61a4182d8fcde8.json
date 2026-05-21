@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT month, proof_count\n        FROM usage\n        WHERE customer_id = $1\n          AND month < $2\n          AND month >= $2 - INTERVAL '12 months'\n        ORDER BY month ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "month",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "proof_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c403683b829ec5b437878803bc226bc5384f8464910a221cba61a4182d8fcde8"
+}

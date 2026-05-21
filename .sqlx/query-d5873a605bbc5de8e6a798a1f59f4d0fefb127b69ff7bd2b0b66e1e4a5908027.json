@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT proof_count FROM usage WHERE customer_id = $1 AND month = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "proof_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d5873a605bbc5de8e6a798a1f59f4d0fefb127b69ff7bd2b0b66e1e4a5908027"
+}

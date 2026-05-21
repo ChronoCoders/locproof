@@ -5,6 +5,7 @@ pub mod db;
 pub mod error;
 pub mod keystore;
 pub mod models;
+pub mod plan;
 pub mod ratelimit;
 pub mod routes;
 pub mod state;

@@ -10,6 +10,7 @@ use axum::{
 pub mod admin;
 pub mod auth;
 pub mod proofs;
+pub mod usage;
 
 /// Auth endpoints (`/auth/*`). Public — no middleware. Register/login
 /// issue session cookies; logout deletes them. Rate-limited to deter
@@ -27,8 +28,9 @@ pub fn auth_router(state: AppState) -> Router<AppState> {
 
 pub fn v1_router(state: AppState) -> Router<AppState> {
     Router::new()
-        .route("/v1/proofs", post(proofs::submit))
+        .route("/v1/proofs", post(proofs::submit).get(proofs::list))
         .route("/v1/proofs/:proof_id", get(proofs::get_proof))
+        .route("/v1/usage", get(usage::get_usage))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             middleware_auth::require_customer_key,
