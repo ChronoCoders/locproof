@@ -19,7 +19,6 @@ export const fetchUsage = cache(
     ),
 );
 
-/// Return the raw session cookie value, or null if the user has none.
 export async function getSessionCookieValue(): Promise<string | null> {
   const c = await cookies();
   return c.get(SESSION_COOKIE)?.value ?? null;
@@ -52,8 +51,6 @@ export async function probeSession(): Promise<UsageResponse | null> {
   }
 }
 
-/// Server-component guard: returns the usage payload, or redirects to
-/// /login if the session is missing or invalid.
 export async function requireSession(): Promise<UsageResponse> {
   const u = await probeSession();
   if (!u) redirect("/login");

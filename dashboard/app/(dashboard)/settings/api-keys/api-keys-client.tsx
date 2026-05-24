@@ -38,7 +38,6 @@ export function ApiKeysClient({ initial }: { initial: KeySummary[] }) {
   const [keys, setKeys] = useState<KeySummary[]>(initial);
   const [hideInactive, setHideInactive] = useState(true);
 
-  // Create flow.
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -47,7 +46,6 @@ export function ApiKeysClient({ initial }: { initial: KeySummary[] }) {
   const [revealed, setRevealed] = useState<CreateKeyResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Deactivate flow.
   const [target, setTarget] = useState<KeySummary | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
@@ -216,7 +214,6 @@ export function ApiKeysClient({ initial }: { initial: KeySummary[] }) {
         </div>
       )}
 
-      {/* Create-key dialog. */}
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -319,7 +316,6 @@ export function ApiKeysClient({ initial }: { initial: KeySummary[] }) {
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate confirmation. */}
       <Dialog
         open={target !== null}
         onOpenChange={(open) => {

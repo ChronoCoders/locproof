@@ -81,7 +81,6 @@ async fn register_mint_key_use_revoke_logout() {
     let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
     let app = build_app(state);
 
-    // Register a fresh user.
     let unique = format!("e2e-{}", Uuid::new_v4());
     let email = format!("{unique}@example.com");
     let register_body = json!({
@@ -110,7 +109,6 @@ async fn register_mint_key_use_revoke_logout() {
 
     let cookie_header = format!("lp_session={session_cookie}");
 
-    // Mint a key via the dashboard.
     let resp = app
         .clone()
         .oneshot(
@@ -132,7 +130,6 @@ async fn register_mint_key_use_revoke_logout() {
     let api_key = body["api_key"].as_str().unwrap().to_string();
     let key_id: Uuid = body["id"].as_str().unwrap().parse().unwrap();
 
-    // Listing returns it.
     let resp = app
         .clone()
         .oneshot(
@@ -154,7 +151,6 @@ async fn register_mint_key_use_revoke_logout() {
         .iter()
         .any(|k| k["id"] == body["id"]));
 
-    // The fresh key authenticates against /v1/proofs.
     let key_a = SigningKey::generate(&mut OsRng);
     let key_b = SigningKey::generate(&mut OsRng);
     let ts = chrono::Utc::now().timestamp();
@@ -177,7 +173,6 @@ async fn register_mint_key_use_revoke_logout() {
         .expect("oneshot proof submit");
     assert_eq!(resp.status(), StatusCode::OK, "submit with fresh key");
 
-    // Delete the key.
     let resp = app
         .clone()
         .oneshot(
@@ -192,7 +187,6 @@ async fn register_mint_key_use_revoke_logout() {
         .expect("oneshot delete_key");
     assert_eq!(resp.status(), StatusCode::OK);
 
-    // Submitting again with the same (now deactivated) key fails.
     let proof_body = SubmitReq {
         device_a: signed_att(&key_a, "ble-a", ts + 10),
         device_b: signed_att(&key_b, "ble-b", ts + 11),
@@ -216,7 +210,6 @@ async fn register_mint_key_use_revoke_logout() {
         "revoked key must not authenticate"
     );
 
-    // Cross-tenant probe: trying to delete a random uuid returns 404.
     let resp = app
         .clone()
         .oneshot(
@@ -231,7 +224,6 @@ async fn register_mint_key_use_revoke_logout() {
         .expect("oneshot delete unknown");
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
-    // Logout deletes the session.
     let resp = app
         .clone()
         .oneshot(
@@ -246,7 +238,6 @@ async fn register_mint_key_use_revoke_logout() {
         .expect("oneshot logout");
     assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
-    // Dashboard request with the now-stale cookie is unauthorised.
     let resp = app
         .clone()
         .oneshot(

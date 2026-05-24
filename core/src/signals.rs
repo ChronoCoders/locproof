@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// GPS coordinates with accuracy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpsSignal {
     pub latitude: f64,
@@ -10,7 +9,6 @@ pub struct GpsSignal {
     pub timestamp: i64,
 }
 
-/// Single BLE device detection
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BleDevice {
     pub device_id: String,
@@ -18,7 +16,6 @@ pub struct BleDevice {
     pub name: Option<String>,
 }
 
-/// Barometric reading
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BarometerSignal {
     pub pressure_hpa: f64,
