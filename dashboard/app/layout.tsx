@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LocProof",
   description:
-    "Tamper-proof digital witness. Cryptographic evidence that two parties were physically present at the same location.",
+    "Tamper-resistant digital witness. Cryptographic evidence that two parties were physically present at the same location. Strongly resistant to spoofing through multi-signal correlation and cryptographic attestation.",
 };
 
 export default function RootLayout({

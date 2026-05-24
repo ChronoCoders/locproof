@@ -1,13 +1,10 @@
 # LocProof
 
-**Tamper-proof digital witness.** Cryptographic evidence that two parties were
-physically present at the same location. Blockchain-anchored. Designed to make
-proximity forgery significantly harder through multi-signal correlation and
-cryptographic attestation, and to support evidentiary value when combined with
-other evidence.
-
-> **Note:** Collusion between both devices and relay attacks remain
-> sophisticated attack vectors under active research.
+**Tamper-resistant digital witness.** Cryptographic evidence that two parties
+were physically present at the same location. Strongly resistant to spoofing
+when device attestation and multi-signal correlation are enforced. Not immune to
+sophisticated collusion or advanced relay attacks without additional external
+anchors.
 
 ## Use Cases
 - **Logistics** — chain-of-custody handoffs between drivers, warehouses, recipients.

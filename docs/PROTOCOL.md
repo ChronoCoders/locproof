@@ -55,9 +55,26 @@ struct DeviceAttestation {
 
 ## Verification Algorithm
 1. Verify both device signatures
-2. Check timestamps within tolerance (e.g., 30 seconds)
-3. Compare signals for correlation
-4. Calculate proximity score
+2. Verify each device's platform attestation (see below)
+3. Check timestamps within tolerance (e.g., 30 seconds)
+4. Compare signals for correlation
+5. Calculate proximity score
+
+## Device Attestation Requirements
+Signals are only trustworthy if they come from a genuine, unmodified app on a
+genuine device. Each `DeviceAttestation` therefore carries a platform
+attestation token, which is **mandatory**:
+
+- **iOS** — Apple **App Attest** is mandatory. The SDK generates a hardware-backed
+  attestation key and includes an App Attest assertion over the signed signal
+  payload.
+- **Android** — Google **Play Integrity** is mandatory. The SDK includes a Play
+  Integrity verdict bound to the same payload.
+
+Proofs from unattested devices **must be rejected, not flagged** — verification
+fails closed. A missing, malformed, or invalid attestation (including
+rooted/jailbroken or emulator verdicts) causes the entire proof to be rejected;
+it is never accepted with a lowered score or a warning annotation.
 
 ## Open Questions
 - Minimum signal combination for reliable proof?
