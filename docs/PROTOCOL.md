@@ -55,9 +55,10 @@ struct DeviceAttestation {
 
 ## Verification Algorithm
 1. Verify both device signatures
-2. Check timestamps within tolerance (e.g., 30 seconds)
-3. Compare signals for correlation
-4. Calculate proximity score
+2. Verify device attestation (reject if invalid) — see Device Attestation Requirements
+3. Check timestamps within tolerance (e.g., 30 seconds)
+4. Compare signals for correlation
+5. Calculate proximity score
 
 ## Open Questions
 - Minimum signal combination for reliable proof?
@@ -73,13 +74,7 @@ struct DeviceAttestation {
 
 Device attestation is mandatory for production proof submission.
 
-- iOS: App Attest (DCAppAttestService)
-- Android: Play Integrity API
-
-Proofs from unattested devices MUST be rejected, not flagged. A device failing attestation invalidates its attestation regardless of signal quality.
-
-Verification order:
-1. Verify device attestation (reject if invalid)
-2. Verify device signatures
-3. Verify timestamp delta
-4. Calculate proximity score
+- iOS: App Attest attestation (Hardware-backed where available) **MUST** be included and validated.
+- Android: Play Integrity API verdict (MEETS_DEVICE_INTEGRITY + MEETS_STRONG_INTEGRITY) **MUST** be included.
+- Proofs from unattested or failed-integrity devices **MUST be rejected** (fail closed), not merely flagged.
+- Attestation verification is step 2 in the proof verification algorithm, before signal scoring.
