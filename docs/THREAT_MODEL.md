@@ -48,7 +48,7 @@ or both endpoints.
   at the protocol level without a trusted external anchor. LocProof *reduces* but
   does not *eliminate* collusion risk. A proof should be treated as one piece of
   evidence among several, never as standalone proof of presence — which is why we
-  qualify its evidentiary value rather than claim it is impossible to fake.
+  qualify its evidentiary value rather than claim it cannot be faked.
 - **Current mitigation**: Bind the proof to externally observable signals (e.g.
   WiFi AP fingerprints of the area) validated against a crowdsourced database, so
   colluding devices must also reproduce a plausible, third-party-observable

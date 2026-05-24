@@ -14,8 +14,10 @@ export default function Home() {
         <div className="space-y-3">
           <h1 className="text-4xl font-semibold tracking-tight">LocProof</h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Tamper-proof digital witness. Cryptographic evidence that two
-            parties were physically present at the same location.
+            Tamper-resistant digital witness. Cryptographic evidence that two
+            parties were physically present at the same location. Strongly
+            resistant to spoofing through multi-signal correlation and
+            cryptographic attestation.
           </p>
         </div>
         <div className="flex gap-3">
