@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO usage (customer_id, month, proof_count)\n        VALUES ($1, $2, 1)\n        ON CONFLICT (customer_id, month)\n        DO UPDATE SET proof_count = usage.proof_count + 1\n        WHERE usage.proof_count < $3::bigint\n        RETURNING proof_count\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "proof_count",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6db79b5a767195cefa390c0adc7a92b736b4ee572a1f785b5474a894a50f6a46"
+}

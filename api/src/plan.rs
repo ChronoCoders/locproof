@@ -5,6 +5,11 @@
 /// Monthly proof quota for the given plan string (the value stored in
 /// `customers.plan`). Unknown plan strings fall back to `free` so a typo'd
 /// row can't accidentally grant unlimited proofs.
+///
+/// Invariant: every quota is `>= 1`. `db::record_usage_within_quota` applies
+/// its `< quota` guard only on the `ON CONFLICT` update path; the first insert
+/// of a month always records count 1, which is correct precisely because no
+/// plan has a quota below 1.
 pub fn quota_for(plan: &str) -> u32 {
     match plan {
         "free" => 100,

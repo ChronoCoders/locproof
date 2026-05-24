@@ -26,6 +26,8 @@ pub enum ApiError {
     TimestampSkew { delta_seconds: i64, max: i64 },
     #[error("rate limit exceeded; retry in {retry_after_secs}s")]
     RateLimited { retry_after_secs: u64 },
+    #[error("monthly quota of {quota} proofs reached; upgrade your plan to continue")]
+    QuotaExceeded { quota: u32 },
     #[error("{0} not found")]
     NotFound(&'static str),
     #[error("internal server error")]
@@ -43,6 +45,7 @@ impl IntoResponse for ApiError {
             ApiError::BadRequest(_) | ApiError::TimestampSkew { .. } => StatusCode::BAD_REQUEST,
             ApiError::InvalidSignature(_) | ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
             ApiError::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
+            ApiError::QuotaExceeded { .. } => StatusCode::PAYMENT_REQUIRED,
             ApiError::NotFound(_) => StatusCode::NOT_FOUND,
             ApiError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         };

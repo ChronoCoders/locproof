@@ -164,24 +164,36 @@ pub async fn get_proof(
     }
 }
 
-/// Bump the customer's current-month proof count. Takes `&mut PgConnection`
-/// for the same reason as `store_proof`. `with_day(1)` is infallible for a
-/// valid `NaiveDate`; `unwrap_or(today)` is a no-panic guard, not a real
-/// fallback.
-pub async fn increment_usage(conn: &mut PgConnection, customer_id: Uuid) -> anyhow::Result<()> {
+/// Record one proof against the customer's current-month usage, but only if
+/// they are below `quota`. Returns `false` (and increments nothing) once the
+/// month has reached `quota`. The conditional `ON CONFLICT DO UPDATE ... WHERE`
+/// is atomic — Postgres row-locks the conflicting usage row — so two submits
+/// racing at the boundary can't both slip past the limit.
+///
+/// `with_day(1)` is infallible for a valid `NaiveDate`; `unwrap_or(today)` is a
+/// no-panic guard. The first proof of a month always inserts (count 1), which
+/// is fine because the minimum quota is 100.
+pub async fn record_usage_within_quota(
+    conn: &mut PgConnection,
+    customer_id: Uuid,
+    quota: i64,
+) -> anyhow::Result<bool> {
     let today = chrono::Utc::now().date_naive();
     let month = today.with_day(1).unwrap_or(today);
-    sqlx::query!(
+    let recorded = sqlx::query_scalar!(
         r#"
         INSERT INTO usage (customer_id, month, proof_count)
         VALUES ($1, $2, 1)
         ON CONFLICT (customer_id, month)
         DO UPDATE SET proof_count = usage.proof_count + 1
+        WHERE usage.proof_count < $3::bigint
+        RETURNING proof_count
         "#,
         customer_id,
         month,
+        quota,
     )
-    .execute(&mut *conn)
+    .fetch_optional(&mut *conn)
     .await?;
-    Ok(())
+    Ok(recorded.is_some())
 }

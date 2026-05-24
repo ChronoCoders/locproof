@@ -180,3 +180,111 @@ async fn submit_then_retrieve_records_usage() {
         .await
         .expect("cleanup customer");
 }
+
+#[tokio::test]
+async fn quota_blocks_over_limit_with_402() {
+    let Ok(db_url) = std::env::var("DATABASE_URL") else {
+        eprintln!("DATABASE_URL not set; skipping integration test");
+        return;
+    };
+
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(4)
+        .connect(&db_url)
+        .await
+        .expect("connect db");
+    db::run_migrations(&pool).await.expect("migrate");
+
+    let unique = format!("e2e-quota-{}", Uuid::new_v4());
+    let (cust, api_key) = customer::create(&pool, &unique)
+        .await
+        .expect("create customer");
+
+    // Free plan = 100/month. Pre-seed this month at 99 so the next submit
+    // lands exactly on the limit and the one after is over it.
+    sqlx::query(
+        "INSERT INTO usage (customer_id, month, proof_count) \
+         VALUES ($1, date_trunc('month', now())::date, 99)",
+    )
+    .bind(cust.id)
+    .execute(&pool)
+    .await
+    .expect("seed usage");
+
+    let server_key = SigningKey::generate(&mut OsRng);
+    let limiter = ratelimit::create_limiter(1000).expect("limiter");
+    let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
+    let app = build_app(state);
+
+    let key_a = SigningKey::generate(&mut OsRng);
+    let key_b = SigningKey::generate(&mut OsRng);
+    let submit = |ts: i64| {
+        let body = SubmitReq {
+            device_a: signed_att(&key_a, "ble-a", ts),
+            device_b: signed_att(&key_b, "ble-b", ts + 1),
+        };
+        Request::builder()
+            .method("POST")
+            .uri("/v1/proofs")
+            .header("Content-Type", "application/json")
+            .header("X-API-Key", &api_key)
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap()
+    };
+
+    let ts = chrono::Utc::now().timestamp();
+    let resp = app
+        .clone()
+        .oneshot(submit(ts))
+        .await
+        .expect("oneshot 100th");
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "100th proof at limit allowed"
+    );
+
+    let resp = app
+        .clone()
+        .oneshot(submit(ts + 10))
+        .await
+        .expect("oneshot 101st");
+    assert_eq!(
+        resp.status(),
+        StatusCode::PAYMENT_REQUIRED,
+        "101st proof over quota must be 402"
+    );
+
+    let count: Option<i32> =
+        sqlx::query_scalar("SELECT proof_count FROM usage WHERE customer_id = $1")
+            .bind(cust.id)
+            .fetch_optional(&pool)
+            .await
+            .expect("fetch usage");
+    assert_eq!(
+        count,
+        Some(100),
+        "rejected submit must not increment past quota"
+    );
+
+    sqlx::query("DELETE FROM proofs WHERE customer_id = $1")
+        .bind(cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup proofs");
+    sqlx::query("DELETE FROM usage WHERE customer_id = $1")
+        .bind(cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup usage");
+    sqlx::query("DELETE FROM api_keys WHERE customer_id = $1")
+        .bind(cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup api_keys");
+    sqlx::query("DELETE FROM customers WHERE id = $1")
+        .bind(cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup customer");
+}

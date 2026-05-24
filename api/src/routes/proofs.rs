@@ -1,5 +1,7 @@
 use crate::db;
 use crate::error::{internal_err, ApiError};
+use crate::models::customer;
+use crate::plan;
 use crate::state::AppState;
 use axum::{
     extract::{Path, Query, State},
@@ -80,11 +82,20 @@ pub async fn submit(
 
     verify::sign_proof(&mut proof, &state.server_keypair).map_err(internal_err)?;
 
+    let plan = customer::get_plan(&state.db, customer_id)
+        .await
+        .map_err(internal_err)?
+        .ok_or(ApiError::Unauthorized)?;
+    let quota = plan::quota_for(&plan);
+
     let mut tx = state.db.begin().await.map_err(internal_err)?;
-    db::store_proof(&mut tx, customer_id, &proof)
+    let recorded = db::record_usage_within_quota(&mut tx, customer_id, quota.into())
         .await
         .map_err(internal_err)?;
-    db::increment_usage(&mut tx, customer_id)
+    if !recorded {
+        return Err(ApiError::QuotaExceeded { quota });
+    }
+    db::store_proof(&mut tx, customer_id, &proof)
         .await
         .map_err(internal_err)?;
     tx.commit().await.map_err(internal_err)?;
