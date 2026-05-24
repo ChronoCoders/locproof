@@ -2,9 +2,22 @@
 // authenticated routes — the real check lives in the Rust API, this just
 // surfaces the cookie value and a yes/no for callers.
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { api, ApiError, SESSION_COOKIE, type UsageResponse } from "./api";
+
+/// Fetch the session's usage payload, memoised per request via React
+/// `cache()`. The (dashboard) layout probes it for the session guard and the
+/// /usage and /billing pages need it too; keying on the forwarded cookie
+/// string means all of them share a single backend round-trip per render.
+export const fetchUsage = cache(
+  (cookie: string | null): Promise<UsageResponse> =>
+    api.get<UsageResponse>(
+      `${apiBase()}/dashboard/usage`,
+      cookie ? { cookie } : undefined,
+    ),
+);
 
 /// Return the raw session cookie value, or null if the user has none.
 export async function getSessionCookieValue(): Promise<string | null> {
@@ -32,10 +45,7 @@ export async function probeSession(): Promise<UsageResponse | null> {
   const cookie = await sessionCookieHeader();
   if (!cookie) return null;
   try {
-    return await api.get<UsageResponse>(
-      `${apiBase()}/dashboard/usage`,
-      { cookie },
-    );
+    return await fetchUsage(cookie);
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return null;
     throw e;
