@@ -31,6 +31,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 argon2 = "0.5"
-async-stripe = { version = "0.39", default-features = false, features = ["runtime-tokio-hyper-rustls"] }
+# `webhook-events` pulls in `EventObject`, whose variants reference resource
+# types across the whole API, so it only compiles alongside the `full` resource
+# set (checkout/billing alone leave types like AccountCapabilities undefined).
+async-stripe = { version = "0.39", default-features = false, features = ["runtime-tokio-hyper-rustls", "full", "webhook-events"] }
 axum-extra = { version = "0.9", features = ["cookie"] }
 time = "0.3"

@@ -1,8 +1,14 @@
 //! Plan-sync persistence tests (Phase 4c). Drives `customer::set_plan`
 //! against a real Postgres. Skipped unless `DATABASE_URL` is set.
 
-use locproof_api::db;
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use ed25519_dalek::SigningKey;
 use locproof_api::models::customer;
+use locproof_api::state::{AppState, StripeConfig};
+use locproof_api::{build_app, db, ratelimit};
+use rand::rngs::OsRng;
+use tower::util::ServiceExt;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -73,4 +79,54 @@ async fn set_plan_syncs_and_clears_subscription() {
         .execute(&pool)
         .await
         .expect("cleanup customer");
+}
+
+#[tokio::test]
+async fn webhook_rejects_missing_and_invalid_signature() {
+    let Ok(db_url) = std::env::var("DATABASE_URL") else {
+        eprintln!("DATABASE_URL not set; skipping integration test");
+        return;
+    };
+
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&db_url)
+        .await
+        .expect("connect db");
+    db::run_migrations(&pool).await.expect("migrate");
+
+    let server_key = SigningKey::generate(&mut OsRng);
+    let limiter = ratelimit::create_limiter(1000).expect("limiter");
+    let stripe = StripeConfig {
+        webhook_secret: Some("whsec_test".into()),
+        ..Default::default()
+    };
+    let app = build_app(AppState::new(
+        server_key, None, limiter, pool, stripe, false,
+    ));
+
+    let no_sig = Request::builder()
+        .method("POST")
+        .uri("/stripe/webhook")
+        .body(Body::from("{}"))
+        .unwrap();
+    let resp = app.clone().oneshot(no_sig).await.expect("oneshot no-sig");
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_REQUEST,
+        "missing Stripe-Signature must be 400"
+    );
+
+    let bad_sig = Request::builder()
+        .method("POST")
+        .uri("/stripe/webhook")
+        .header("Stripe-Signature", "t=123,v1=deadbeef")
+        .body(Body::from("{}"))
+        .unwrap();
+    let resp = app.clone().oneshot(bad_sig).await.expect("oneshot bad-sig");
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_REQUEST,
+        "invalid signature must be 400"
+    );
 }

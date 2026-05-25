@@ -8,7 +8,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signer, SigningKey};
 use http_body_util::BodyExt;
 use locproof_api::ratelimit;
-use locproof_api::state::AppState;
+use locproof_api::state::{AppState, StripeConfig};
 use locproof_api::{build_app, db};
 use locproof_core::signals::SignalSnapshot;
 use rand::rngs::OsRng;
@@ -78,7 +78,14 @@ async fn register_mint_key_use_revoke_logout() {
 
     let server_key = SigningKey::generate(&mut OsRng);
     let limiter = ratelimit::create_limiter(1000).expect("limiter");
-    let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
+    let state = AppState::new(
+        server_key,
+        None,
+        limiter,
+        pool.clone(),
+        StripeConfig::default(),
+        false,
+    );
     let app = build_app(state);
 
     let unique = format!("e2e-{}", Uuid::new_v4());

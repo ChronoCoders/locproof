@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 pub mod auth;
+pub mod billing;
 pub mod db;
 pub mod error;
 pub mod keystore;
@@ -10,7 +11,12 @@ pub mod ratelimit;
 pub mod routes;
 pub mod state;
 
-use axum::{extract::State, http::StatusCode, routing::get, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Router,
+};
 use state::AppState;
 
 /// Assemble the full application router. Public so integration tests can
@@ -19,6 +25,9 @@ pub fn build_app(state: AppState) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/health", get(health))
+        // Stripe-signature auth, not API key or session — kept off every
+        // auth router on purpose.
+        .route("/stripe/webhook", post(routes::webhook::handle))
         .merge(routes::v1_router(state.clone()))
         .merge(routes::admin_router(state.clone()))
         .merge(routes::auth_router(state.clone()))

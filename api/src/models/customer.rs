@@ -74,6 +74,20 @@ pub async fn get_plan(pool: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::E
         .await
 }
 
+/// Resolve our customer id from a Stripe customer id. `None` if no customer
+/// is linked to it — the webhook treats that as "ack and ignore".
+pub async fn find_by_stripe_customer_id(
+    pool: &PgPool,
+    stripe_customer_id: &str,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT id FROM customers WHERE stripe_customer_id = $1"#,
+        stripe_customer_id,
+    )
+    .fetch_optional(pool)
+    .await
+}
+
 /// Sync a customer's plan and Stripe subscription linkage. Called from the
 /// Stripe webhook on subscription create/change/cancel. Passing `None` for the
 /// subscription fields clears them — e.g. on cancellation, where the caller

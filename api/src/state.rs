@@ -1,7 +1,18 @@
+use crate::billing::StripePrices;
 use crate::ratelimit::Limiter;
 use ed25519_dalek::SigningKey;
 use sqlx::PgPool;
 use std::sync::Arc;
+
+/// Stripe-related boot inputs, grouped so `AppState::new` stays within a sane
+/// argument count. All fields are independently optional — Stripe is wholly
+/// optional in dev.
+#[derive(Default)]
+pub struct StripeConfig {
+    pub client: Option<stripe::Client>,
+    pub prices: StripePrices,
+    pub webhook_secret: Option<String>,
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -18,6 +29,11 @@ pub struct AppState {
     /// then skips the Stripe customer create and leaves
     /// `customers.stripe_customer_id` NULL.
     pub stripe: Option<Arc<stripe::Client>>,
+    /// Stripe Price ID ↔ plan map (from `STRIPE_PRICE_*`). Empty when unset.
+    pub stripe_prices: StripePrices,
+    /// `STRIPE_WEBHOOK_SECRET`. `None` if unset, in which case the webhook
+    /// endpoint rejects everything (it can't verify signatures).
+    pub stripe_webhook_secret: Option<Arc<String>>,
     /// Whether to set the `Secure` attribute on session cookies. True in
     /// production (HTTPS), false in `LOCPROOF_DEV=1` so localhost http
     /// requests still receive the cookie.
@@ -30,7 +46,7 @@ impl AppState {
         bootstrap_key: Option<String>,
         rate_limiter: Arc<Limiter>,
         db: PgPool,
-        stripe: Option<stripe::Client>,
+        stripe: StripeConfig,
         cookie_secure: bool,
     ) -> Self {
         Self {
@@ -38,7 +54,9 @@ impl AppState {
             bootstrap_key: bootstrap_key.map(Arc::new),
             rate_limiter,
             db,
-            stripe: stripe.map(Arc::new),
+            stripe: stripe.client.map(Arc::new),
+            stripe_prices: stripe.prices,
+            stripe_webhook_secret: stripe.webhook_secret.map(Arc::new),
             cookie_secure,
         }
     }

@@ -12,6 +12,7 @@ pub mod auth;
 pub mod dashboard;
 pub mod proofs;
 pub mod usage;
+pub mod webhook;
 
 /// Dashboard endpoints (`/dashboard/*`). Session-cookie auth via
 /// `require_user_session`. No rate limit: the current limiter keys on the

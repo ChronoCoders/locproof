@@ -12,7 +12,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use http_body_util::BodyExt;
 use locproof_api::models::customer;
 use locproof_api::ratelimit;
-use locproof_api::state::AppState;
+use locproof_api::state::{AppState, StripeConfig};
 use locproof_api::{build_app, db};
 use locproof_core::proof::ProximityProof;
 use locproof_core::signals::SignalSnapshot;
@@ -73,7 +73,14 @@ async fn submit_then_retrieve_records_usage() {
 
     let server_key = SigningKey::generate(&mut OsRng);
     let limiter = ratelimit::create_limiter(1000).expect("limiter");
-    let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
+    let state = AppState::new(
+        server_key,
+        None,
+        limiter,
+        pool.clone(),
+        StripeConfig::default(),
+        false,
+    );
     let app = build_app(state);
 
     let key_a = SigningKey::generate(&mut OsRng);
@@ -213,7 +220,14 @@ async fn quota_blocks_over_limit_with_402() {
 
     let server_key = SigningKey::generate(&mut OsRng);
     let limiter = ratelimit::create_limiter(1000).expect("limiter");
-    let state = AppState::new(server_key, None, limiter, pool.clone(), None, false);
+    let state = AppState::new(
+        server_key,
+        None,
+        limiter,
+        pool.clone(),
+        StripeConfig::default(),
+        false,
+    );
     let app = build_app(state);
 
     let key_a = SigningKey::generate(&mut OsRng);

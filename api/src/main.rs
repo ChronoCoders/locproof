@@ -1,7 +1,11 @@
 #![deny(warnings)]
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use locproof_api::{build_app, db, keystore, ratelimit, state::AppState};
+use locproof_api::{
+    billing::StripePrices,
+    build_app, db, keystore, ratelimit,
+    state::{AppState, StripeConfig},
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -46,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let stripe = match std::env::var("STRIPE_SECRET_KEY") {
+    let stripe_client = match std::env::var("STRIPE_SECRET_KEY") {
         Ok(secret) => {
             tracing::info!("Stripe client initialised");
             Some(stripe::Client::new(secret))
@@ -57,6 +61,15 @@ async fn main() -> anyhow::Result<()> {
             );
             None
         }
+    };
+    let stripe_webhook_secret = std::env::var("STRIPE_WEBHOOK_SECRET").ok();
+    if stripe_webhook_secret.is_none() {
+        tracing::warn!("STRIPE_WEBHOOK_SECRET not set — /stripe/webhook will reject all events");
+    }
+    let stripe = StripeConfig {
+        client: stripe_client,
+        prices: StripePrices::from_env(),
+        webhook_secret: stripe_webhook_secret,
     };
 
     let cookie_secure = !dev_mode;
