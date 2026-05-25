@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT proof_data FROM proofs WHERE id = $1",
+  "query": "SELECT proof_data FROM proofs WHERE id = $1 AND customer_id = $2",
   "describe": {
     "columns": [
       {
@@ -11,6 +11,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -18,5 +19,5 @@
       false
     ]
   },
-  "hash": "f76336da234a73e81e805b1cb5b42b47500fcfb2dfcbf842cfb1d60305566aaa"
+  "hash": "31e1216b3ba7938402c135222430431bf02a6ccf75a0af1a25f6783ef5b9f1fa"
 }

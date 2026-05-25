@@ -141,13 +141,22 @@ pub async fn usage_history(
     Ok(rows)
 }
 
-/// Fetch a stored proof by id. `Ok(None)` means the row was not found —
-/// callers translate that to a 404. Pool-bound (read-only, no transaction
-/// coordination needed).
-pub async fn get_proof(pool: &PgPool, proof_id: Uuid) -> anyhow::Result<Option<ProximityProof>> {
-    let row = sqlx::query!(r#"SELECT proof_data FROM proofs WHERE id = $1"#, proof_id,)
-        .fetch_optional(pool)
-        .await?;
+/// Fetch a stored proof by id, scoped to its owning customer. `Ok(None)`
+/// means no such proof exists for this customer — callers translate that to
+/// a 404, which also hides other customers' proof ids (no IDOR). Pool-bound
+/// (read-only, no transaction coordination needed).
+pub async fn get_proof(
+    pool: &PgPool,
+    customer_id: Uuid,
+    proof_id: Uuid,
+) -> anyhow::Result<Option<ProximityProof>> {
+    let row = sqlx::query!(
+        r#"SELECT proof_data FROM proofs WHERE id = $1 AND customer_id = $2"#,
+        proof_id,
+        customer_id,
+    )
+    .fetch_optional(pool)
+    .await?;
 
     match row {
         Some(r) => Ok(Some(serde_json::from_value(r.proof_data)?)),
