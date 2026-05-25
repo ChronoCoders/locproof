@@ -4,6 +4,49 @@ All notable changes to LocProof are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] — 2026-05-25
+
+Phase 4b — Next.js dashboard. A separate app in `dashboard/` (Next.js 16
+App Router, React 19, Tailwind v4, shadcn/ui, dark mode default) talking to
+the 4a backend. Browser calls go through a same-origin `/api/*` rewrite so
+the `lp_session` cookie flows under `SameSite=Strict`; server components
+fetch the backend directly with the cookie forwarded.
+
+### Added
+
+- **Auth pages** — `/login` and `/register` (react-hook-form + zod),
+  posting to `/auth/*`. On success the session cookie is set by the
+  backend and the user lands on `/proofs`.
+- **Authenticated shell** — `(dashboard)` route group with a server-side
+  `requireSession()` guard, sidebar (nav, plan badge, sign-out), and a
+  segment `error.tsx` using Next 16.2 `unstable_retry` to recover
+  transient server-fetch failures.
+- **`/proofs`** — cursor-paginated table ("Load more"), colored
+  proximity-score badges, clickable rows opening a one-at-a-time JSON
+  detail modal (request-token guarded against stale responses).
+- **`/usage`** — current-month card (count, included quota, progress
+  bar, with an Unlimited path for enterprise) and a Recharts bar chart
+  of the last 12 months plus the current one.
+- **`/billing`** — plan comparison cards mirroring the backend quotas,
+  active plan highlighted; upgrade CTAs are disabled placeholders until
+  Phase 4c (Stripe checkout).
+- **`/settings/api-keys`** — list (name, status, created, last used)
+  with a hide-inactive toggle (default on), a create flow that reveals
+  the plaintext key exactly once (copy-to-clipboard, never persisted
+  beyond modal state), and a guarded deactivate confirmation.
+- **`GET /dashboard/proofs/:id`** — session-gated single-proof
+  retrieval returning the full signed proof, backing the detail modal.
+
+### Fixed
+
+- **IDOR in proof retrieval.** `db::get_proof` fetched any proof by id
+  with no tenant scoping, so `GET /v1/proofs/:id` let any customer key
+  read another customer's proof. It is now scoped
+  (`WHERE id = $1 AND customer_id = $2`); cross-customer access returns
+  404 indistinguishably from a missing id. Both the `/v1` (API-key) and
+  new `/dashboard` (session) handlers share `get_proof_impl`, and
+  `api/tests/proofs_e2e.rs` adds a cross-customer 404 regression test.
+
 ## [v0.4.0] — 2026-05-20
 
 Phase 4a — Backend foundation for the dashboard and billing work.
