@@ -103,3 +103,13 @@ export type CreateKeyResponse = {
   api_key: string;
   created_at: string;
 };
+
+// Full stored proof, returned by GET /dashboard/proofs/:id. The nested device
+// attestations carry raw byte arrays (Ed25519 keys/signatures) plus the signal
+// snapshot, so the shape is deep and partly opaque — the UI just pretty-prints
+// it as JSON rather than rendering every field, hence the permissive typing.
+export type ProofDetail = {
+  id: string;
+  timestamp: number;
+  proximity_score: number;
+} & Record<string, unknown>;
