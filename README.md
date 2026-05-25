@@ -2,7 +2,7 @@
 
 **Tamper-resistant digital witness.** Cryptographic evidence that two parties
 were physically present at the same location. Strongly resistant to spoofing
-when device attestation and multi-signal correlation are enforced. Not immune to
+through multi-signal correlation and cryptographic attestation. Not immune to
 sophisticated collusion or advanced relay attacks without additional external
 anchors.
 
