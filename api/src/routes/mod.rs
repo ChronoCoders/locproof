@@ -22,6 +22,7 @@ pub mod usage;
 pub fn dashboard_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/dashboard/proofs", get(dashboard::list_proofs))
+        .route("/dashboard/proofs/:id", get(dashboard::get_proof))
         .route("/dashboard/usage", get(dashboard::get_usage))
         .route(
             "/dashboard/keys",

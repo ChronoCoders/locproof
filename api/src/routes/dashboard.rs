@@ -18,6 +18,7 @@ use axum::{
     Extension, Json,
 };
 use chrono::{DateTime, Utc};
+use locproof_core::proof::ProximityProof;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -27,6 +28,14 @@ pub async fn list_proofs(
     Query(q): Query<ListQuery>,
 ) -> Result<Json<ListProofsResponse>, ApiError> {
     routes::proofs::list_impl(&s, customer_id, q).await
+}
+
+pub async fn get_proof(
+    State(s): State<AppState>,
+    Extension(CustomerId(customer_id)): Extension<CustomerId>,
+    Path(proof_id): Path<Uuid>,
+) -> Result<Json<ProximityProof>, ApiError> {
+    routes::proofs::get_proof_impl(&s, customer_id, proof_id).await
 }
 
 pub async fn get_usage(

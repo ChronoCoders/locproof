@@ -184,9 +184,21 @@ fn decode_cursor(s: &str) -> Result<(DateTime<Utc>, Uuid), ApiError> {
 
 pub async fn get_proof(
     State(state): State<AppState>,
+    Extension(customer_id): Extension<Uuid>,
     Path(proof_id): Path<Uuid>,
 ) -> Result<Json<ProximityProof>, ApiError> {
-    db::get_proof(&state.db, proof_id)
+    get_proof_impl(&state, customer_id, proof_id).await
+}
+
+/// Pure body of `GET /v1/proofs/:id` and `GET /dashboard/proofs/:id`. Scoped
+/// to `customer_id` so each caller only ever sees its own proofs, regardless
+/// of how it authenticated (API key vs session cookie).
+pub async fn get_proof_impl(
+    state: &AppState,
+    customer_id: Uuid,
+    proof_id: Uuid,
+) -> Result<Json<ProximityProof>, ApiError> {
+    db::get_proof(&state.db, customer_id, proof_id)
         .await
         .map_err(internal_err)?
         .map(Json)

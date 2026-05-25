@@ -120,6 +120,36 @@ async fn submit_then_retrieve_records_usage() {
     let resp = app.clone().oneshot(missing).await.expect("oneshot 404");
     assert_eq!(resp.status(), StatusCode::NOT_FOUND, "missing proof status");
 
+    // IDOR guard: a *different* customer must not be able to retrieve this
+    // proof by id. `get_proof` is scoped by customer_id, so the row is
+    // invisible to other customers and the lookup 404s.
+    let other_unique = format!("e2e-other-{}", Uuid::new_v4());
+    let (other_cust, other_key) = customer::create(&pool, &other_unique)
+        .await
+        .expect("create other customer");
+    let cross = Request::builder()
+        .method("GET")
+        .uri(format!("/v1/proofs/{proof_id}"))
+        .header("X-API-Key", &other_key)
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(cross).await.expect("oneshot cross");
+    assert_eq!(
+        resp.status(),
+        StatusCode::NOT_FOUND,
+        "cross-customer proof must 404"
+    );
+    sqlx::query("DELETE FROM api_keys WHERE customer_id = $1")
+        .bind(other_cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup other api_keys");
+    sqlx::query("DELETE FROM customers WHERE id = $1")
+        .bind(other_cust.id)
+        .execute(&pool)
+        .await
+        .expect("cleanup other customer");
+
     let count: Option<i32> =
         sqlx::query_scalar("SELECT proof_count FROM usage WHERE customer_id = $1")
             .bind(cust.id)
