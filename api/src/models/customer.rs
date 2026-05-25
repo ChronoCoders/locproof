@@ -74,6 +74,33 @@ pub async fn get_plan(pool: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::E
         .await
 }
 
+/// Sync a customer's plan and Stripe subscription linkage. Called from the
+/// Stripe webhook on subscription create/change/cancel. Passing `None` for the
+/// subscription fields clears them — e.g. on cancellation, where the caller
+/// also passes `plan = "free"`. Returns `false` if no customer matched the id.
+pub async fn set_plan(
+    pool: &PgPool,
+    id: Uuid,
+    plan: &str,
+    stripe_subscription_id: Option<&str>,
+    subscription_status: Option<&str>,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        UPDATE customers
+        SET plan = $2, stripe_subscription_id = $3, subscription_status = $4
+        WHERE id = $1
+        "#,
+        id,
+        plan,
+        stripe_subscription_id,
+        subscription_status,
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
 /// Soft-delete the customer. Idempotent. Active API keys are left alone —
 /// `require_customer_key` joins on `customers.is_active` so they stop
 /// authenticating immediately anyway.
